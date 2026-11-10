@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Ghost Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Anchored Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,8 +344,8 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Fly AutoFarm (Walls)", false, function(v) State.AutoFarm = v end)
-Farm:CreateSlider("Tween Speed", 10, 100, 20, function(v) State.TweenSpeed = v end)
+Farm:CreateToggle("Anchored AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПРИЗРАК + ПОЛЁТ ПОД КАРТУ)
+-- АВТОФАРМ (ПРИВЯЗКА + ИНТЕРПОЛЯЦИЯ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -480,9 +480,12 @@ task.spawn(function()
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
-                hum.PlatformStand = true 
-
-                -- Отключаем коллизию (пролетаем сквозь стены)
+                
+                -- Привязываем персонажа (чтобы не падал)
+                hrp.Anchored = true
+                hum.PlatformStand = true
+                
+                -- Отключаем коллизию
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = false end
                 end
@@ -528,26 +531,33 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- Уходим под карту (на 10 стадов вниз)
+                        -- Ручная интерполяция (плавный полёт без падения)
+                        local startPos = hrp.Position
                         local underPos = target.Position - Vector3.new(0, 10, 0)
-                        hrp.CFrame = CFrame.new(underPos)
-                        task.wait(0.1)
-
-                        -- Летим вверх к монете
-                        local distanceUp = (hrp.Position - target.Position).Magnitude
-                        local timeUp = distanceUp / (State.TweenSpeed * 2)
                         
-                        local tweenUp = TweenService:Create(hrp, TweenInfo.new(timeUp, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
-                        tweenUp:Play()
-                        tweenUp.Completed:Wait()
-
-                        -- Висим 0.5 сек на монете
+                        -- 1. Летим под карту
+                        for i = 0, 1, 0.1 do
+                            hrp.CFrame = CFrame.new(startPos:Lerp(underPos, i))
+                            task.wait(0.01)
+                        end
+                        
+                        -- 2. Летим к монете
+                        local upPos = target.Position
+                        startPos = hrp.Position
+                        for i = 0, 1, 0.1 do
+                            hrp.CFrame = CFrame.new(startPos:Lerp(upPos, i))
+                            task.wait(0.01)
+                        end
+                        
+                        -- 3. Висим 0.5 сек
                         task.wait(0.5)
-
-                        -- Летим обратно под карту
-                        local tweenDown = TweenService:Create(hrp, TweenInfo.new(timeUp, Enum.EasingStyle.Linear), {CFrame = CFrame.new(underPos)})
-                        tweenDown:Play()
-                        tweenDown.Completed:Wait()
+                        
+                        -- 4. Летим обратно под карту
+                        startPos = hrp.Position
+                        for i = 0, 1, 0.1 do
+                            hrp.CFrame = CFrame.new(startPos:Lerp(underPos, i))
+                            task.wait(0.01)
+                        end
 
                         -- Сбор
                         if firetouchinterest then
@@ -560,8 +570,8 @@ task.spawn(function()
         else
             local char = LocalPlayer.Character
             if char then
+                if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
                 if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
-                -- Возвращаем коллизию
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = true end
                 end
