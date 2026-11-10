@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Godmode Farm)
+-- Qovick Hub :: Ultimate Custom UI (Anchor Under-Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -342,7 +342,16 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Under & God)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("AutoFarm (Anchor Under)", false, function(v) 
+    State.AutoFarm = v 
+    if not v then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.Anchored = false
+            if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
+        end
+    end
+end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -468,15 +477,18 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПОД МОНЕТУ + БЕССМЕРТИЕ)
+-- АВТОФАРМ (ЗАВИСАНИЕ ПОД МОНЕТОЙ)
 -- ==========================================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
-    -- Убираем бессмертие, если фарм выключен
+    -- Снимаем якорь, если фарм выключен
     if not State.AutoFarm then
-        if char:FindFirstChild("QovickGod") then char.QovickGod:Destroy() end
+        if char.HumanoidRootPart.Anchored then
+            char.HumanoidRootPart.Anchored = false
+            if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
+        end
         return
     end
     
@@ -524,18 +536,15 @@ RunService.Heartbeat:Connect(function()
     end
 
     if target then
-        -- Бессмертие (ForceField)
-        if not char:FindFirstChild("QovickGod") then
-            local ff = Instance.new("ForceField", char)
-            ff.Name = "QovickGod"
-            ff.Visible = false
-        end
+        -- Привязываем персонажа ПОД монету (зависание)
+        char.HumanoidRootPart.Anchored = true
+        if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = true end
         
-        -- Телепорт ПОД монету (чтобы хитбокс задел её)
-        char.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, -2, 0)
-        task.wait(0.05)
+        -- Смещение на 3 стада вниз (чтобы задеть хитбоксом)
+        char.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, -3, 0)
+        char.HumanoidRootPart.Velocity = Vector3.zero
         
-        -- Прикосновение
+        -- Активируем касание
         if firetouchinterest then
             pcall(function()
                 firetouchinterest(char.HumanoidRootPart, target, 0)
@@ -543,7 +552,7 @@ RunService.Heartbeat:Connect(function()
             end)
         end
         
-        -- Если есть кнопка E (ProximityPrompt)
+        -- Промпт E
         if fireproximityprompt then
             local prompt = target:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildWhichIsA("ProximityPrompt", true)
             if prompt then
@@ -551,7 +560,18 @@ RunService.Heartbeat:Connect(function()
             end
         end
         
-        task.wait(0.15)
+        -- Ждем, пока конфета не исчезнет (максимум 0.2 сек)
+        local timer = 0
+        while target.Parent and timer < 0.2 do
+            task.wait(0.05)
+            timer = timer + 0.05
+        end
+    else
+        -- Если монет нет, снимаем якорь, чтобы можно было ходить
+        if char.HumanoidRootPart.Anchored then
+            char.HumanoidRootPart.Anchored = false
+            if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
+        end
     end
 end)
 
