@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (BodyPos Farm + Auto Gun TP)
+-- Qovick Hub :: Ultimate Custom UI (Smooth Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -334,7 +334,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("BodyPos AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Smooth Fly AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,9 +471,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (BODY POSITION)
+-- АВТОФАРМ (SMOOTH FLIGHT)
 -- ==========================================
 task.spawn(function()
+    local bv, bg
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
@@ -481,63 +482,71 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                local isLobby = Workspace:FindFirstChild("Lobby") ~= nil
-                local isDead = hum.Health <= 0
+                -- Infinite health & no collision
+                hum.MaxHealth = math.huge
+                hum.Health = math.huge
+                hum.PlatformStand = true
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
                 
-                if not isLobby and not isDead then
-                    local target = nil
-                    for _, obj in pairs(Workspace:GetDescendants()) do
-                        local n = obj.Name:lower()
-                        if n:find("coin") or n:find("candy") or n:find("drop") then
-                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                            if part and part:IsA("BasePart") then
-                                target = part
-                                break
-                            end
-                        end
-                    end
+                -- Cancel gravity to prevent falling
+                if not bv or bv.Parent ~= hrp then
+                    bv = Instance.new("BodyVelocity", hrp)
+                    bv.Name = "QovickFarmBV"
+                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bv.Velocity = Vector3.zero
+                    
+                    bg = Instance.new("BodyGyro", hrp)
+                    bg.Name = "QovickFarmBG"
+                    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                end
 
-                    if target then
-                        hum.MaxHealth = math.huge
-                        hum.Health = math.huge
-                        hum.PlatformStand = true
-                        for _, v in pairs(char:GetDescendants()) do
-                            if v:IsA("BasePart") then v.CanCollide = false end
-                        end
-                        
-                        local bp = hrp:FindFirstChild("QovickFarmBP")
-                        if not bp then
-                            bp = Instance.new("BodyPosition", hrp)
-                            bp.Name = "QovickFarmBP"
-                            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                            bp.P = 50000
-                            bp.D = 1000
-                        end
-                        
-                        bp.Position = target.Position
-                        
-                        if (hrp.Position - target.Position).Magnitude < 3 then
-                            if firetouchinterest then
-                                firetouchinterest(hrp, target, 0)
-                                firetouchinterest(hrp, target, 1)
+                -- Find coin
+                local target = nil
+                local shortestDist = math.huge
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    local n = obj.Name:lower()
+                    if n:find("coin") or n:find("candy") or n:find("drop") then
+                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                        if part and part:IsA("BasePart") then
+                            local dist = (hrp.Position - part.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                target = part
                             end
-                            task.wait(0.5)
-                        end
-                    else
-                        local bp = hrp:FindFirstChild("QovickFarmBP")
-                        if bp then bp:Destroy() end
-                        hum.PlatformStand = false
-                        for _, v in pairs(char:GetDescendants()) do
-                            if v:IsA("BasePart") then v.CanCollide = true end
                         end
                     end
-                else
-                    local bp = hrp:FindFirstChild("QovickFarmBP")
-                    if bp then bp:Destroy() end
-                    hum.PlatformStand = false
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = true end
+                end
+
+                if target then
+                    -- Fly to target
+                    local distance = (hrp.Position - target.Position).Magnitude
+                    local steps = math.max(5, math.floor(distance / 5))
+                    local startPos = hrp.Position
+                    
+                    for i = 1, steps do
+                        hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
+                        task.wait(0.02)
                     end
+                    
+                    -- Collect
+                    if firetouchinterest then
+                        firetouchinterest(hrp, target, 0)
+                        firetouchinterest(hrp, target, 1)
+                    end
+                    
+                    task.wait(0.5)
+                end
+            end
+        else
+            if bv then bv:Destroy(); bv = nil end
+            if bg then bg:Destroy(); bg = nil end
+            local char = LocalPlayer.Character
+            if char then
+                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = true end
                 end
             end
         end
