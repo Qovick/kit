@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Ghost BodyPos Farm)
+-- Qovick Hub :: Ultimate Custom UI (Smart Ghost Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,7 +344,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Ghost AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Smart AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПРИЗРАК + BODY POSITION)
+-- АВТОФАРМ (УМНЫЙ ПРИЗРАК)
 -- ==========================================
 task.spawn(function()
     local bp, bg
@@ -482,13 +482,13 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Абсолютное бессмертие и отключение физики
+                -- Бессмертие и отключение физики
                 hum.MaxHealth = math.huge
                 hum.Health = math.huge
                 hum.PlatformStand = true
                 hum:ChangeState(Enum.HumanoidStateType.Physics)
                 
-                -- Отключаем коллизию КАЖДЫЙ КАДР
+                -- Отключаем коллизию
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then 
                         v.CanCollide = false 
@@ -552,18 +552,20 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- 1. Уходим под карту
+                        -- Если нашли монету, летим к ней
                         local underPos = target.Position - Vector3.new(0, 10, 0)
+                        
+                        -- 1. Под карту
                         bp.Position = underPos
                         bg.CFrame = CFrame.new(underPos)
                         task.wait(0.1)
                         
-                        -- 2. Летим к монете
+                        -- 2. К монете
                         bp.Position = target.Position
                         bg.CFrame = target.CFrame
                         task.wait(0.5)
                         
-                        -- 3. Уходим обратно под карту
+                        -- 3. Обратно под карту
                         bp.Position = underPos
                         bg.CFrame = CFrame.new(underPos)
                         task.wait(0.1)
@@ -573,6 +575,10 @@ task.spawn(function()
                             firetouchinterest(hrp, target, 0)
                             firetouchinterest(hrp, target, 1)
                         end
+                    else
+                        -- Если монет нет (лобби), просто зависаем на месте
+                        bp.Position = hrp.Position
+                        bg.CFrame = hrp.CFrame
                     end
                 end
             end
