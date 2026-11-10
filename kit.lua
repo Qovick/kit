@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Final)
+-- Qovick Hub :: Ultimate Custom UI (Final Safe Build)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -22,10 +22,14 @@ local Colors = {
     Green = Color3.fromRGB(60, 255, 60)
 }
 
+-- Безопасное подключение UI (обход блокировки CoreGui)
+local ParentGui = game:GetService("CoreGui")
+pcall(function() ParentGui = gethui() end)
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "QovickUI_Main"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game.CoreGui
+ScreenGui.Parent = ParentGui
 
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 620, 0, 420)
@@ -266,17 +270,17 @@ Visuals:CreateToggle("Show Box", false, function(v) State.ESPBox = v end)
 Visuals:CreateToggle("Show Tracers", false, function(v) State.ESPTracer = v end)
 Visuals:CreateToggle("Outline (Chams)", false, function(v) State.ESPOutline = v end)
 
-local Player = QovickUI:CreateTab("Player")
-Player:CreateSlider("Walk Speed", 16, 200, 16, function(v)
+local PlayerTab = QovickUI:CreateTab("Player")
+PlayerTab:CreateSlider("Walk Speed", 16, 200, 16, function(v)
     State.WalkSpeed = v
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = v end
 end)
-Player:CreateSlider("Jump Power", 50, 300, 50, function(v)
+PlayerTab:CreateSlider("Jump Power", 50, 300, 50, function(v)
     State.JumpPower = v
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end
 end)
 
-Player:CreateToggle("Fly [Space/Shift]", false, function(v)
+PlayerTab:CreateToggle("Fly [Space/Shift]", false, function(v)
     State.FlyActive = v
     local char = LocalPlayer.Character
     if not char then return end
@@ -484,94 +488,3 @@ RunService.Heartbeat:Connect(function()
             return
         end
     end
-
-    if not State.AutoFarm then return end
-    
-    local targetCoin = nil
-    local shortestDist = 1000
-
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        local n = obj.Name:lower()
-        if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
-            local handle = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-            if handle and handle:IsA("BasePart") then
-                local dist = (char.HumanoidRootPart.Position - handle.Position).Magnitude
-                if dist < shortestDist then
-                    shortestDist = dist
-                    targetCoin = handle
-                end
-            end
-        end
-    end
-
-    if targetCoin then
-        char.HumanoidRootPart.CFrame = targetCoin.CFrame * CFrame.new(0, -3, 0)
-        char.HumanoidRootPart.Velocity = Vector3.zero
-        char.HumanoidRootPart.Anchored = true
-        
-        if firetouchinterest then
-            firetouchinterest(char.HumanoidRootPart, targetCoin, 0)
-            firetouchinterest(char.HumanoidRootPart, targetCoin, 1)
-        end
-        
-        local waitTime = 0
-        while targetCoin.Parent and waitTime < 1 do
-            task.wait(0.05)
-            waitTime = waitTime + 0.05
-        end
-        
-        char.HumanoidRootPart.Anchored = false
-    end
-end)
-
--- АВТО-ПОДБОР ПИСТОЛЕТА
-RunService.Heartbeat:Connect(function()
-    if not State.AutoPickupGun then return end
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj:IsA("Tool") and obj.Name == "Gun" then
-            local handle = obj:FindFirstChild("Handle")
-            if handle then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = handle.CFrame
-                task.wait(0.1)
-            end
-        end
-    end
-end)
-
--- Aimbot / Kill Aura
-RunService.RenderStepped:Connect(function()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local closestTarget = nil
-    local shortestDist = State.FOVSize
-    local mousePos = UserInputService:GetMouseLocation()
-    
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local tChar = p.Character
-            local tHrp = tChar.HumanoidRootPart
-            local hum = tChar:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                if State.KillAura then
-                    if (hrp.Position - tHrp.Position).Magnitude <= State.KillDist then
-                        local tool = char:FindFirstChildWhichIsA("Tool")
-                        if tool and tool:FindFirstChild("Kill") then tool.Kill:FireServer(tChar) end
-                    end
-                end
-                if State.SilentAim then
-                    local vec, onScreen = Camera:WorldToViewportPoint(tHrp.Position)
-                    if onScreen then
-                        local distToMouse = (Vector2.new(vec.X, vec.Y) - mousePos).Magnitude
-                        if distToMouse < shortestDist then shortestDist = distToMouse; closestTarget = tChar end
-                    end
-                end
-            end
-        end
-    end
-    if State.SilentAim and closestTarget then
-        local targetPart = closestTarget:FindFirstChild(State.TargetPart) or closestTarget:FindFirstChild("HumanoidRootPart")
-        if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
-    end
-    if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
-end)
