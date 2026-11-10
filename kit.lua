@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Smart Round Farm)
+-- Qovick Hub :: Ultimate Custom UI (Safe Smart Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,7 +344,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smart Round Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Safe Smart Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- УМНЫЙ АВТОФАРМ (ЛОББИ / РАУНД)
+-- АВТОФАРМ (БЕЗОПАСНЫЙ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -481,69 +481,69 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                local target = nil
-                for _, obj in pairs(Workspace:GetDescendants()) do
-                    local n = obj.Name:lower()
-                    if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
-                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                        if part and part:IsA("BasePart") then
-                            target = part
-                            break
-                        end
-                    end
+                -- Проверка на лобби (если Y > 500 или есть папка Lobby)
+                local inLobby = false
+                if hrp.Position.Y > 500 or Workspace:FindFirstChild("Lobby") then
+                    inLobby = true
                 end
 
-                if target then
-                    -- РАУНД (Монеты есть)
-                    hum.MaxHealth = math.huge
-                    hum.Health = math.huge
-                    hum.PlatformStand = true
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = false end
-                    end
-
-                    -- Телепорт под карту
-                    local underPos = target.Position - Vector3.new(0, 10, 0)
-                    hrp.CFrame = CFrame.new(underPos)
-                    task.wait(0.1)
-
-                    -- Летим к монете
-                    local steps = 15
-                    local startPos = hrp.Position
-                    for i = 1, steps do
-                        hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
-                        task.wait(0.02)
-                    end
-
-                    -- Сбор
-                    if firetouchinterest then
-                        firetouchinterest(hrp, target, 0)
-                        firetouchinterest(hrp, target, 1)
-                    end
-                    
-                    task.wait(0.5) -- Висим 0.5 сек
-
-                    -- Уходим под карту
-                    local endPos = target.Position - Vector3.new(0, 10, 0)
-                    for i = 1, steps do
-                        hrp.CFrame = CFrame.new(target.Position:Lerp(endPos, i / steps))
-                        task.wait(0.02)
-                    end
-
-                else
-                    -- ЛОББИ (Монет нет)
+                if inLobby then
+                    -- В лобби просто стоим
                     hum.PlatformStand = false
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = true end
                     end
-                end
-            end
-        else
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then 
-                char.Humanoid.PlatformStand = false 
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = true end
+                else
+                    -- В раунде ищем монеты
+                    local target = nil
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        local n = obj.Name:lower()
+                        if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
+                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                            if part and part:IsA("BasePart") and part.Position.Y < 500 then
+                                target = part
+                                break
+                            end
+                        end
+                    end
+
+                    if target then
+                        -- Бессмертие и режим призрака
+                        hum.MaxHealth = math.huge
+                        hum.Health = math.huge
+                        hum.PlatformStand = true
+                        for _, v in pairs(char:GetDescendants()) do
+                            if v:IsA("BasePart") then v.CanCollide = false end
+                        end
+
+                        -- Уходим под карту на безопасную глубину (-50)
+                        local underPos = Vector3.new(target.Position.X, -50, target.Position.Z)
+                        hrp.CFrame = CFrame.new(underPos)
+                        task.wait(0.1)
+
+                        -- Летим к монете
+                        local steps = 15
+                        local startPos = hrp.Position
+                        for i = 1, steps do
+                            hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
+                            task.wait(0.02)
+                        end
+
+                        -- Сбор
+                        if firetouchinterest then
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
+                        end
+                        
+                        task.wait(0.5)
+
+                        -- Обратно под карту
+                        local endPos = Vector3.new(target.Position.X, -50, target.Position.Z)
+                        for i = 1, steps do
+                            hrp.CFrame = CFrame.new(target.Position:Lerp(endPos, i / steps))
+                            task.wait(0.02)
+                        end
+                    end
                 end
             end
         end
