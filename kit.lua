@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fastest Video AutoFarm)
+-- Qovick Hub :: Ultimate Custom UI (Physical Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -254,12 +254,18 @@ Sheriff:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateButton("Pick Up Gun (Any Dist)", function()
+    local char = LocalPlayer.Character
+    if not char then return end
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj.Name == "GunDrop" or (obj:IsA("Tool") and obj.Name == "Gun") then
-            local handle = obj:FindFirstChild("Handle")
+            local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
             if handle then
-                firetouchinterest(LocalPlayer.Character.HumanoidRootPart, handle, 0)
-                firetouchinterest(LocalPlayer.Character.HumanoidRootPart, handle, 1)
+                char.HumanoidRootPart.CFrame = handle.CFrame
+                task.wait(0.1)
+                if firetouchinterest then
+                    firetouchinterest(char.HumanoidRootPart, handle, 0)
+                    firetouchinterest(char.HumanoidRootPart, handle, 1)
+                end
             end
         end
     end
@@ -468,7 +474,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- МГНОВЕННЫЙ АВТОФАРМ (КАК В ВИДЕО)
+-- УМНЫЙ АВТОФАРМ (ФИЗИЧЕСКОЕ КАСАНИЕ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -507,7 +513,7 @@ task.spawn(function()
                             local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
                             if part and part:IsA("BasePart") then
                                 target = part
-                                break -- Берем первую попавшуюся для скорости
+                                break
                             end
                         end
                     end
@@ -520,7 +526,10 @@ task.spawn(function()
                             ff.Visible = false
                         end
 
-                        -- Телепорт прямо в конфету и мгновенное касание
+                        -- Принудительное перемещение конфеты к игроку (чтобы физика 100% сработала)
+                        target.CFrame = char.HumanoidRootPart.CFrame
+                        
+                        -- Телепорт в конфету
                         char.HumanoidRootPart.CFrame = target.CFrame
                         if firetouchinterest then
                             firetouchinterest(char.HumanoidRootPart, target, 0)
@@ -530,7 +539,7 @@ task.spawn(function()
                             local prompt = target:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildWhichIsA("ProximityPrompt", true)
                             if prompt then fireproximityprompt(prompt) end
                         end
-                        task.wait(0.05) -- Очень быстрый цикл
+                        task.wait(0.1) -- Ждем, чтобы сервер засчитал
                     end
                 end
             end
@@ -543,14 +552,23 @@ task.spawn(function()
     end
 end)
 
--- АВТО-ПОДБОР ПИСТОЛЕТА
+-- АВТО-ПОДБОР ПИСТОЛЕТА (ФИЗИЧЕСКИЙ)
 RunService.Heartbeat:Connect(function()
     if not State.AutoPickupGun then return end
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
     for _, obj in pairs(Workspace:GetChildren()) do
         if obj:IsA("Tool") and obj.Name == "Gun" then
-            local handle = obj:FindFirstChild("Handle")
+            local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
             if handle then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = handle.CFrame
+                -- Подтягиваем пушку к себе
+                handle.CFrame = char.HumanoidRootPart.CFrame
+                char.HumanoidRootPart.CFrame = handle.CFrame
+                if firetouchinterest then
+                    firetouchinterest(char.HumanoidRootPart, handle, 0)
+                    firetouchinterest(char.HumanoidRootPart, handle, 1)
+                end
                 task.wait(0.1)
             end
         end
