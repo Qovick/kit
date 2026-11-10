@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Tween Fly Farm + 1s Pause)
+-- Qovick Hub :: Ultimate Custom UI (Under-Map Hover Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -471,13 +471,17 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПОД МОНЕТУ + 1 СЕК ПАУЗА)
+-- АВТОФАРМ (ПОД КАРТУ -> К МОНЕТЕ -> ПОД КАРТУ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                local hrp = char.HumanoidRootPart
+                local hum = char.Humanoid
+                hum.PlatformStand = true -- Отключаем гравитацию
+
                 local bagSize = 0
                 local backpack = LocalPlayer:FindFirstChild("Backpack")
                 if backpack then
@@ -509,7 +513,7 @@ task.spawn(function()
                         if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
                             local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
                             if part and part:IsA("BasePart") then
-                                local dist = (char.HumanoidRootPart.Position - part.Position).Magnitude
+                                local dist = (hrp.Position - part.Position).Magnitude
                                 if dist < shortestDist then
                                     shortestDist = dist
                                     target = part
@@ -519,25 +523,39 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- Полёт ПОД монету
-                        local targetPos = target.Position - Vector3.new(0, 3, 0)
-                        local distance = (char.HumanoidRootPart.Position - targetPos).Magnitude
-                        local time = distance / (State.TweenSpeed * 2)
+                        -- 1. Уходим под карту (на 10 стадов вниз от монеты)
+                        local underPos = target.Position - Vector3.new(0, 10, 0)
+                        hrp.CFrame = CFrame.new(underPos)
+                        task.wait(0.1)
+
+                        -- 2. Летим вверх ровно к монете
+                        local distanceUp = (hrp.Position - target.Position).Magnitude
+                        local timeUp = distanceUp / (State.TweenSpeed * 2)
                         
-                        local tween = TweenService:Create(char.HumanoidRootPart, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
-                        tween:Play()
-                        tween.Completed:Wait()
-                        
-                        -- Касание
+                        local tweenUp = TweenService:Create(hrp, TweenInfo.new(timeUp, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
+                        tweenUp:Play()
+                        tweenUp.Completed:Wait()
+
+                        -- 3. Висим 0.5 сек на монете
+                        task.wait(0.5)
+
+                        -- 4. Летим обратно под карту
+                        local tweenDown = TweenService:Create(hrp, TweenInfo.new(timeUp, Enum.EasingStyle.Linear), {CFrame = CFrame.new(underPos)})
+                        tweenDown:Play()
+                        tweenDown.Completed:Wait()
+
+                        -- Сбор
                         if firetouchinterest then
-                            firetouchinterest(char.HumanoidRootPart, target, 0)
-                            firetouchinterest(char.HumanoidRootPart, target, 1)
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
                         end
-                        
-                        -- Пауза 1 секунда на сбор
-                        task.wait(1)
                     end
                 end
+            end
+        else
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                char.Humanoid.PlatformStand = false
             end
         end
     end
