@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Noclip Added)
+-- Qovick Hub :: Ultimate Custom UI (Lobby & Death Check Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -346,7 +346,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Tween Fly AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Smart Lobby Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -483,7 +483,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПЛАВНЫЙ ПОЛЁТ)
+-- АВТОФАРМ (УМНАЯ ПРОВЕРКА)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -493,48 +493,64 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                hum.MaxHealth = math.huge
-                hum.Health = math.huge
-                hum.PlatformStand = true
+                -- Проверка: в лобби или мертв?
+                local isLobby = Workspace:FindFirstChild("Lobby") ~= nil
+                local isDead = hum.Health <= 0
                 
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
-                end
-
-                local target = nil
-                local shortestDist = math.huge
-                for _, obj in pairs(Workspace:GetDescendants()) do
-                    local n = obj.Name:lower()
-                    if n:find("coin") or n:find("candy") or n:find("drop") then
-                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                        if part and part:IsA("BasePart") then
-                            local dist = (hrp.Position - part.Position).Magnitude
-                            if dist < shortestDist then
-                                shortestDist = dist
-                                target = part
+                if isLobby or isDead then
+                    -- Ничего не делаем, просто стоим
+                    hum.PlatformStand = false
+                    hrp.Anchored = false
+                    for _, v in pairs(char:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide = true end
+                    end
+                else
+                    -- В раунде ищем монеты
+                    local target = nil
+                    local shortestDist = math.huge
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        local n = obj.Name:lower()
+                        if n:find("coin") or n:find("candy") or n:find("drop") then
+                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                            if part and part:IsA("BasePart") then
+                                local dist = (hrp.Position - part.Position).Magnitude
+                                if dist < shortestDist then
+                                    shortestDist = dist
+                                    target = part
+                                end
                             end
                         end
                     end
-                end
 
-                if target then
-                    hrp.Anchored = true
-                    
-                    local distance = (hrp.Position - target.Position).Magnitude
-                    local time = distance / State.TweenSpeed
-                    
-                    local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
-                    tween:Play()
-                    tween.Completed:Wait()
-                    
-                    if firetouchinterest then
-                        firetouchinterest(hrp, target, 0)
-                        firetouchinterest(hrp, target, 1)
+                    if target then
+                        -- Летим к монете
+                        hum.MaxHealth = math.huge
+                        hum.Health = math.huge
+                        hum.PlatformStand = true
+                        for _, v in pairs(char:GetDescendants()) do
+                            if v:IsA("BasePart") then v.CanCollide = false end
+                        end
+                        
+                        hrp.Anchored = true
+                        
+                        local distance = (hrp.Position - target.Position).Magnitude
+                        local time = distance / State.TweenSpeed
+                        
+                        local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
+                        tween:Play()
+                        tween.Completed:Wait()
+                        
+                        if firetouchinterest then
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
+                        end
+                        
+                        task.wait(0.5)
+                    else
+                        -- Монет нет, просто висим
+                        hrp.Anchored = true
+                        hum.PlatformStand = true
                     end
-                    
-                    task.wait(0.5)
-                else
-                    hrp.CFrame = hrp.CFrame
                 end
             end
         else
