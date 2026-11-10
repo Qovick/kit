@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Pure Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Noclip Added)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -245,8 +245,8 @@ local State = {
     SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
-    WalkSpeed = 16, JumpPower = 50, FlyActive = false,
-    AutoFarm = false, TweenSpeed = 20, ResetOnFull = false, KillAllOnFull = false
+    WalkSpeed = 16, JumpPower = 50, FlyActive = false, Noclip = false,
+    AutoFarm = false, TweenSpeed = 50, ResetOnFull = false, KillAllOnFull = false
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
@@ -287,6 +287,8 @@ PlayerTab:CreateSlider("Jump Power", 50, 300, 50, function(v)
     State.JumpPower = v
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end
 end)
+
+PlayerTab:CreateToggle("Noclip", false, function(v) State.Noclip = v end)
 
 PlayerTab:CreateToggle("Fly [Space/Shift]", false, function(v)
     State.FlyActive = v
@@ -344,7 +346,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Fly AutoFarm (Walls)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Tween Fly AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -388,6 +390,16 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 RunService.RenderStepped:Connect(function()
+    -- Noclip Logic
+    if State.Noclip then
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end
+    end
+
     if not State.ESP and not State.ESPOutline then
         for _, d in pairs(Drawings) do 
             if d.Text then d.Text:Remove() end
@@ -471,7 +483,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПОЛЁТ СКВОЗЬ СТЕНЫ)
+-- АВТОФАРМ (ПЛАВНЫЙ ПОЛЁТ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -481,17 +493,14 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Бессмертие и отключение физики
                 hum.MaxHealth = math.huge
                 hum.Health = math.huge
                 hum.PlatformStand = true
                 
-                -- Отключаем коллизию
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = false end
                 end
 
-                -- Ищем ближайшую монету
                 local target = nil
                 local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -509,17 +518,15 @@ task.spawn(function()
                 end
 
                 if target then
-                    -- Летим к монете
+                    hrp.Anchored = true
+                    
                     local distance = (hrp.Position - target.Position).Magnitude
-                    local steps = math.max(5, math.floor(distance / 5))
-                    local startPos = hrp.Position
+                    local time = distance / State.TweenSpeed
                     
-                    for i = 1, steps do
-                        hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
-                        task.wait(0.02)
-                    end
+                    local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
+                    tween:Play()
+                    tween.Completed:Wait()
                     
-                    -- Сбор
                     if firetouchinterest then
                         firetouchinterest(hrp, target, 0)
                         firetouchinterest(hrp, target, 1)
@@ -527,9 +534,14 @@ task.spawn(function()
                     
                     task.wait(0.5)
                 else
-                    -- Если монет нет, просто висим в воздухе
                     hrp.CFrame = hrp.CFrame
                 end
+            end
+        else
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.Anchored = false
+                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
             end
         end
     end
