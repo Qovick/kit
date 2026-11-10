@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Smart AutoFarm)
+-- Qovick Hub :: Ultimate Custom UI (All-In-One + Under-Map Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -318,7 +318,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Smart)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("AutoFarm (Under-Map)", false, function(v) State.AutoFarm = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -427,15 +427,12 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- УМНЫЙ АВТОФАРМ
+-- АВТОФАРМ (ТЕЛЕПОРТ ПОД МОНЕТЫ / СКВОЗЬ СТЕНЫ)
 -- ==========================================
-local collectedCount = 0
-
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
-    -- Ищем полный мешок (по атрибутам или значению)
     local bagSize = 0
     local backpack = LocalPlayer:FindFirstChild("Backpack")
     if backpack then
@@ -462,27 +459,32 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Умный поиск предметов
     if not State.AutoFarm then return end
+    
+    local targetCoin = nil
+    local shortestDist = 1000
+
     for _, obj in pairs(Workspace:GetDescendants()) do
         local n = obj.Name:lower()
-        -- Ищем монеты, конфеты или папки с дропом
         if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
             local handle = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-            if handle then
+            if handle and handle:IsA("BasePart") then
                 local dist = (char.HumanoidRootPart.Position - handle.Position).Magnitude
-                if dist < 300 then
-                    -- Телепорт
-                    char.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 3, 0)
-                    -- Для надежности делаем имитацию клика/касания
-                    if firetouchinterest then
-                        firetouchinterest(char.HumanoidRootPart, handle, 0)
-                        firetouchinterest(char.HumanoidRootPart, handle, 1)
-                    end
-                    task.wait(0.05) -- Задержка, чтобы не крашнуло
+                if dist < shortestDist then
+                    shortestDist = dist
+                    targetCoin = handle
                 end
             end
         end
+    end
+
+    if targetCoin then
+        char.HumanoidRootPart.CFrame = CFrame.new(targetCoin.Position) 
+        if firetouchinterest then
+            firetouchinterest(char.HumanoidRootPart, targetCoin, 0)
+            firetouchinterest(char.HumanoidRootPart, targetCoin, 1)
+        end
+        task.wait(0.05)
     end
 end)
 
