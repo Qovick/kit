@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (MoveTo Farm)
+-- Qovick Hub :: Ultimate Custom UI (Fly Through Walls Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -246,7 +246,7 @@ local State = {
     KillAura = false, KillDist = 20,
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false,
-    AutoFarm = false, AutoPickupGun = false, ResetOnFull = false, KillAllOnFull = false
+    AutoFarm = false, FarmSpeed = 50, AutoPickupGun = false, ResetOnFull = false, KillAllOnFull = false
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
@@ -344,7 +344,8 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("MoveTo AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Fly AutoFarm (Walls)", false, function(v) State.AutoFarm = v end)
+Farm:CreateSlider("Farm Speed", 1, 100, 50, function(v) State.FarmSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -470,16 +471,13 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ДВИЖЕНИЕ К МОНЕТЕ)
+-- АВТОФАРМ (ПОЛЁТ СКВОЗЬ СТЕНЫ СКОРОСТЬ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
-                local hrp = char.HumanoidRootPart
-                local hum = char.Humanoid
-                
+            if char and char:FindFirstChild("HumanoidRootPart") then
                 local bagSize = 0
                 local backpack = LocalPlayer:FindFirstChild("Backpack")
                 if backpack then
@@ -505,39 +503,31 @@ task.spawn(function()
                     end
                 else
                     local target = nil
-                    local shortestDist = 500
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         local n = obj.Name:lower()
                         if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
-                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj) or obj:FindFirstChildWhichIsA("BasePart")
-                            if part then
-                                local dist = (hrp.Position - part.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    target = part
-                                end
+                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                            if part and part:IsA("BasePart") then
+                                target = part
+                                break
                             end
                         end
                     end
 
                     if target then
-                        local oldSpeed = hum.WalkSpeed
-                        hum.WalkSpeed = 200
-                        hum:MoveTo(target.Position)
-                        local time = 0
-                        while target.Parent and time < 1 do
-                            task.wait(0.05)
-                            time = time + 0.05
-                            if (hrp.Position - target.Position).Magnitude < 4 then
-                                if firetouchinterest then
-                                    pcall(function()
-                                        firetouchinterest(hrp, target, 0)
-                                        firetouchinterest(hrp, target, 1)
-                                    end)
-                                end
-                            end
+                        -- Телепорт прямо в конфету
+                        char.HumanoidRootPart.CFrame = target.CFrame
+                        if firetouchinterest then
+                            firetouchinterest(char.HumanoidRootPart, target, 0)
+                            firetouchinterest(char.HumanoidRootPart, target, 1)
                         end
-                        hum.WalkSpeed = oldSpeed
+                        if fireproximityprompt then
+                            local prompt = target:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildWhichIsA("ProximityPrompt", true)
+                            if prompt then fireproximityprompt(prompt) end
+                        end
+                        
+                        -- Задержка на основе слайдера (1 - 100)
+                        task.wait((101 - State.FarmSpeed) / 200)
                     end
                 end
             end
@@ -555,7 +545,11 @@ RunService.Heartbeat:Connect(function()
         if obj:IsA("Tool") and obj.Name == "Gun" then
             local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
             if handle then
-                char.Humanoid:MoveTo(handle.Position)
+                char.HumanoidRootPart.CFrame = handle.CFrame
+                if firetouchinterest then
+                    firetouchinterest(char.HumanoidRootPart, handle, 0)
+                    firetouchinterest(char.HumanoidRootPart, handle, 1)
+                end
                 task.wait(0.1)
             end
         end
