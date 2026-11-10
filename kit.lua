@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI
+-- Qovick Hub :: Ultimate Custom UI (All-In-One)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -231,20 +231,34 @@ function QovickUI:CreateTab(name)
 end
 
 -- ==========================================
--- ЛОГИКА И ВКЛАДКИ
+-- СОСТОЯНИЕ (STATE)
 -- ==========================================
 local State = {
     SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
-    ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, MaxDist = 2000,
+    ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false,
-    AutoCoins = false, FlingTarget = nil
+    AutoCoins = false, AutoFarm = false, AutoPickupGun = false
 }
 
+-- ==========================================
+-- ВКЛАДКИ
+-- ==========================================
 local Sheriff = QovickUI:CreateTab("Sheriff")
 Sheriff:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
+Sheriff:CreateButton("Pick Up Gun (Any Dist)", function()
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj.Name == "GunDrop" or (obj:IsA("Tool") and obj.Name == "Gun") then
+            local handle = obj:FindFirstChild("Handle")
+            if handle then
+                firetouchinterest(LocalPlayer.Character.HumanoidRootPart, handle, 0)
+                firetouchinterest(LocalPlayer.Character.HumanoidRootPart, handle, 1)
+            end
+        end
+    end
+end)
 
 local Murderer = QovickUI:CreateTab("Murderer")
 Murderer:CreateToggle("Kill Aura", false, function(v) State.KillAura = v end)
@@ -252,9 +266,9 @@ Murderer:CreateSlider("Kill Range", 5, 100, 20, function(v) State.KillDist = v e
 
 local Visuals = QovickUI:CreateTab("Visuals")
 Visuals:CreateToggle("Enable ESP", false, function(v) State.ESP = v end)
-Visuals:CreateToggle("Show Name", true, function(v) State.ESPName = v end)
 Visuals:CreateToggle("Show Box", false, function(v) State.ESPBox = v end)
 Visuals:CreateToggle("Show Tracers", false, function(v) State.ESPTracer = v end)
+Visuals:CreateToggle("Outline (Chams)", false, function(v) State.ESPOutline = v end)
 
 local Player = QovickUI:CreateTab("Player")
 Player:CreateSlider("Walk Speed", 16, 200, 16, function(v)
@@ -308,7 +322,8 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Auto Collect Coins", false, function(v) State.AutoCoins = v end)
+Farm:CreateToggle("AutoFarm (Teleport)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Auto Pickup Gun", false, function(v) State.AutoPickupGun = v end)
 
 local Troll = QovickUI:CreateTab("Troll")
 Troll:CreateToggle("Fake Headless", false, function(v)
@@ -332,34 +347,57 @@ Settings:CreateButton("Unload Hub", function()
 end)
 
 -- ==========================================
--- ЦИКЛЫ
+-- ЦИКЛЫ (ESP, ОБВОДКА)
 -- ==========================================
 local Drawings = {}
+local Highlights = {}
+
 RunService.RenderStepped:Connect(function()
-    if not State.ESP then
+    if not State.ESP and not State.ESPOutline then
         for _, d in pairs(Drawings) do d:Remove() end
-        Drawings = {}; return
+        Drawings = {} 
+        for _, h in pairs(Highlights) do h:Destroy() end
+        Highlights = {}
+        return
     end
+
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = p.Character.HumanoidRootPart
-            if (Camera.CFrame.Position - hrp.Position).Magnitude <= State.MaxDist then
+            local char = p.Character
+            local hrp = char.HumanoidRootPart
+            
+            if State.ESPOutline then
+                if not Highlights[p] then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "QovickESP"
+                    hl.FillColor = Colors.Accent
+                    hl.FillTransparency = 0.5
+                    hl.OutlineColor = Colors.Accent
+                    hl.OutlineTransparency = 0
+                    hl.Parent = char
+                    Highlights[p] = hl
+                end
+            else
+                if Highlights[p] then Highlights[p]:Destroy(); Highlights[p] = nil end
+            end
+
+            if State.ESP then
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                 if onScreen then
                     if not Drawings[p] then Drawings[p] = { Text = Drawing.new("Text"), Box = Drawing.new("Square"), Tracer = Drawing.new("Line") } end
                     local d = Drawings[p]
-                    d.Text.Visible = State.ESPName
+                    
                     if State.ESPName then
-                        d.Text.Text = p.Name; d.Text.Color = Colors.Accent; d.Text.Size = 16; d.Text.Center = true; d.Text.Outline = true; d.Text.Position = Vector2.new(pos.X, pos.Y - 20)
-                    end
-                    d.Box.Visible = State.ESPBox
+                        d.Text.Visible = true; d.Text.Text = p.Name; d.Text.Color = Colors.Accent; d.Text.Size = 16; d.Text.Center = true; d.Text.Outline = true; d.Text.Position = Vector2.new(pos.X, pos.Y - 20)
+                    else d.Text.Visible = false end
+                    
                     if State.ESPBox then
-                        d.Box.Color = Colors.Accent; d.Box.Thickness = 1; d.Box.Size = Vector2.new(50, 80); d.Box.Position = Vector2.new(pos.X - 25, pos.Y - 40)
-                    end
-                    d.Tracer.Visible = State.ESPTracer
+                        d.Box.Visible = true; d.Box.Color = Colors.Accent; d.Box.Thickness = 1; d.Box.Size = Vector2.new(50, 80); d.Box.Position = Vector2.new(pos.X - 25, pos.Y - 40)
+                    else d.Box.Visible = false end
+                    
                     if State.ESPTracer then
-                        d.Tracer.Color = Colors.Accent; d.Tracer.Thickness = 1; d.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); d.Tracer.To = Vector2.new(pos.X, pos.Y + 20)
-                    end
+                        d.Tracer.Visible = true; d.Tracer.Color = Colors.Accent; d.Tracer.Thickness = 1; d.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); d.Tracer.To = Vector2.new(pos.X, pos.Y + 20)
+                    else d.Tracer.Visible = false end
                 else
                     if Drawings[p] then Drawings[p].Text.Visible = false; Drawings[p].Box.Visible = false; Drawings[p].Tracer.Visible = false end
                 end
@@ -368,6 +406,42 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- ==========================================
+-- АВТОФАРМ (ТЕЛЕПОРТ К МОНЕТАМ)
+-- ==========================================
+RunService.Heartbeat:Connect(function()
+    if not State.AutoFarm then return end
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if (obj.Name == "Coin" or obj.Name == "CoinDrop") and obj:FindFirstChild("Handle") then
+            if (char.HumanoidRootPart.Position - obj.Handle.Position).Magnitude < 300 then
+                char.HumanoidRootPart.CFrame = obj.Handle.CFrame + Vector3.new(0, 3, 0)
+                task.wait(0.1)
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- АВТО-ПОДБОР ПИСТОЛЕТА
+-- ==========================================
+RunService.Heartbeat:Connect(function()
+    if not State.AutoPickupGun then return end
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("Tool") and obj.Name == "Gun" then
+            local handle = obj:FindFirstChild("Handle")
+            if handle then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = handle.CFrame
+                task.wait(0.1)
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- Aimbot / Kill Aura
+-- ==========================================
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -403,17 +477,4 @@ RunService.RenderStepped:Connect(function()
         if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
     end
     if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
-end)
-
-RunService.Heartbeat:Connect(function()
-    if not State.AutoCoins then return end
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj.Name == "Coin" and obj:FindFirstChild("Handle") then
-            if (char.HumanoidRootPart.Position - obj.Handle.Position).Magnitude < 100 then
-                pcall(function() char.Humanoid:MoveTo(obj.Handle.Position) end)
-            end
-        end
-    end
 end)
