@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (All-In-One + Fixed Hotkey)
+-- Qovick Hub :: Ultimate Custom UI (Roles + Gun TP fix)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -16,7 +16,10 @@ local Colors = {
     PanelHover = Color3.fromRGB(35, 35, 42),
     Accent = Color3.fromRGB(240, 168, 64),
     Text = Color3.fromRGB(240, 240, 240),
-    TextDim = Color3.fromRGB(150, 150, 160)
+    TextDim = Color3.fromRGB(150, 150, 160),
+    Red = Color3.fromRGB(255, 60, 60),
+    Blue = Color3.fromRGB(60, 150, 255),
+    Green = Color3.fromRGB(60, 255, 60)
 }
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -80,7 +83,6 @@ local ContentList = Instance.new("UIListLayout", ContentArea)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
 ContentList.Padding = UDim.new(0, 8)
 
--- БРОНЕБОЙНЫЙ ХОТКЕЙ (RightControl)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.RightControl then
         ScreenGui.Enabled = not ScreenGui.Enabled
@@ -229,9 +231,6 @@ function QovickUI:CreateTab(name)
     return TabAPI
 end
 
--- ==========================================
--- СОСТОЯНИЕ (STATE)
--- ==========================================
 local State = {
     SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
@@ -240,9 +239,6 @@ local State = {
     AutoCoins = false, AutoFarm = false, AutoPickupGun = false
 }
 
--- ==========================================
--- ВКЛАДКИ
--- ==========================================
 local Sheriff = QovickUI:CreateTab("Sheriff")
 Sheriff:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
@@ -258,6 +254,7 @@ Sheriff:CreateButton("Pick Up Gun (Any Dist)", function()
         end
     end
 end)
+Sheriff:CreateToggle("Auto Pickup Gun", false, function(v) State.AutoPickupGun = v end) -- ПЕРЕНЕСЕНО СЮДА
 
 local Murderer = QovickUI:CreateTab("Murderer")
 Murderer:CreateToggle("Kill Aura", false, function(v) State.KillAura = v end)
@@ -268,6 +265,7 @@ Visuals:CreateToggle("Enable ESP", false, function(v) State.ESP = v end)
 Visuals:CreateToggle("Show Box", false, function(v) State.ESPBox = v end)
 Visuals:CreateToggle("Show Tracers", false, function(v) State.ESPTracer = v end)
 Visuals:CreateToggle("Outline (Chams)", false, function(v) State.ESPOutline = v end)
+Visuals:CreateToggle("Show Roles", true, function(v) State.ESPRole = v end)
 
 local Player = QovickUI:CreateTab("Player")
 Player:CreateSlider("Walk Speed", 16, 200, 16, function(v)
@@ -322,7 +320,6 @@ end)
 
 local Farm = QovickUI:CreateTab("Farm")
 Farm:CreateToggle("AutoFarm (Teleport)", false, function(v) State.AutoFarm = v end)
-Farm:CreateToggle("Auto Pickup Gun", false, function(v) State.AutoPickupGun = v end)
 
 local Troll = QovickUI:CreateTab("Troll")
 Troll:CreateToggle("Fake Headless", false, function(v)
@@ -341,12 +338,10 @@ Troll:CreateToggle("Fake Headless", false, function(v)
 end)
 
 local Settings = QovickUI:CreateTab("Settings")
-Settings:CreateButton("Unload Hub", function()
-    ScreenGui:Destroy()
-end)
+Settings:CreateButton("Unload Hub", function() ScreenGui:Destroy() end)
 
 -- ==========================================
--- ЦИКЛЫ (ESP, ОБВОДКА)
+-- ЦИКЛЫ (ESP, ОБВОДКА, РОЛИ)
 -- ==========================================
 local Drawings = {}
 local Highlights = {}
@@ -365,16 +360,36 @@ RunService.RenderStepped:Connect(function()
             local char = p.Character
             local hrp = char.HumanoidRootPart
             
+            -- Определение роли
+            local roleText = ""
+            local roleColor = Colors.Text
+            local hasKnife = (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (char:FindFirstChild("Knife"))
+            local hasGun = (p.Backpack and p.Backpack:FindFirstChild("Gun")) or (char:FindFirstChild("Gun"))
+            
+            if hasKnife then
+                roleText = " [Murderer]"
+                roleColor = Colors.Red
+            elseif hasGun then
+                roleText = " [Sheriff]"
+                roleColor = Colors.Blue
+            else
+                roleText = " [Innocent]"
+                roleColor = Colors.Green
+            end
+            
             if State.ESPOutline then
                 if not Highlights[p] then
                     local hl = Instance.new("Highlight")
                     hl.Name = "QovickESP"
-                    hl.FillColor = Colors.Accent
+                    hl.FillColor = roleColor
                     hl.FillTransparency = 0.5
-                    hl.OutlineColor = Colors.Accent
+                    hl.OutlineColor = roleColor
                     hl.OutlineTransparency = 0
                     hl.Parent = char
                     Highlights[p] = hl
+                else
+                    Highlights[p].FillColor = roleColor
+                    Highlights[p].OutlineColor = roleColor
                 end
             else
                 if Highlights[p] then Highlights[p]:Destroy(); Highlights[p] = nil end
@@ -387,15 +402,21 @@ RunService.RenderStepped:Connect(function()
                     local d = Drawings[p]
                     
                     if State.ESPName then
-                        d.Text.Visible = true; d.Text.Text = p.Name; d.Text.Color = Colors.Accent; d.Text.Size = 16; d.Text.Center = true; d.Text.Outline = true; d.Text.Position = Vector2.new(pos.X, pos.Y - 20)
+                        d.Text.Visible = true
+                        d.Text.Text = p.Name .. roleText
+                        d.Text.Color = roleColor
+                        d.Text.Size = 16
+                        d.Text.Center = true
+                        d.Text.Outline = true
+                        d.Text.Position = Vector2.new(pos.X, pos.Y - 20)
                     else d.Text.Visible = false end
                     
                     if State.ESPBox then
-                        d.Box.Visible = true; d.Box.Color = Colors.Accent; d.Box.Thickness = 1; d.Box.Size = Vector2.new(50, 80); d.Box.Position = Vector2.new(pos.X - 25, pos.Y - 40)
+                        d.Box.Visible = true; d.Box.Color = roleColor; d.Box.Thickness = 1; d.Box.Size = Vector2.new(50, 80); d.Box.Position = Vector2.new(pos.X - 25, pos.Y - 40)
                     else d.Box.Visible = false end
                     
                     if State.ESPTracer then
-                        d.Tracer.Visible = true; d.Tracer.Color = Colors.Accent; d.Tracer.Thickness = 1; d.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); d.Tracer.To = Vector2.new(pos.X, pos.Y + 20)
+                        d.Tracer.Visible = true; d.Tracer.Color = roleColor; d.Tracer.Thickness = 1; d.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); d.Tracer.To = Vector2.new(pos.X, pos.Y + 20)
                     else d.Tracer.Visible = false end
                 else
                     if Drawings[p] then Drawings[p].Text.Visible = false; Drawings[p].Box.Visible = false; Drawings[p].Tracer.Visible = false end
@@ -405,9 +426,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ==========================================
 -- АВТОФАРМ (ТЕЛЕПОРТ К МОНЕТАМ)
--- ==========================================
 RunService.Heartbeat:Connect(function()
     if not State.AutoFarm then return end
     local char = LocalPlayer.Character
@@ -422,9 +441,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ==========================================
 -- АВТО-ПОДБОР ПИСТОЛЕТА
--- ==========================================
 RunService.Heartbeat:Connect(function()
     if not State.AutoPickupGun then return end
     for _, obj in pairs(Workspace:GetChildren()) do
@@ -438,9 +455,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ==========================================
 -- Aimbot / Kill Aura
--- ==========================================
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
