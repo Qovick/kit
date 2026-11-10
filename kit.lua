@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Lobby & Death Check Farm)
+-- Qovick Hub :: Ultimate Custom UI (BodyPos Farm + Auto Gun TP)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -246,27 +246,15 @@ local State = {
     KillAura = false, KillDist = 20,
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false, Noclip = false,
-    AutoFarm = false, TweenSpeed = 50, ResetOnFull = false, KillAllOnFull = false
+    AutoFarm = false, TweenSpeed = 50, ResetOnFull = false, KillAllOnFull = false,
+    AutoTPGun = false
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
 Sheriff:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
-Sheriff:CreateButton("Pick Up Gun (Any Dist)", function()
-    local char = LocalPlayer.Character
-    if not char then return end
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj.Name == "GunDrop" or (obj:IsA("Tool") and obj.Name == "Gun") then
-            local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
-            if handle then
-                char.HumanoidRootPart.CFrame = handle.CFrame
-                task.wait(0.1)
-            end
-        end
-    end
-end)
-Sheriff:CreateToggle("Auto Pickup Gun", false, function(v) State.AutoPickupGun = v end)
+Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
 
 local Murderer = QovickUI:CreateTab("Murderer")
 Murderer:CreateToggle("Kill Aura", false, function(v) State.KillAura = v end)
@@ -346,7 +334,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smart Lobby Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("BodyPos AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -483,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (УМНАЯ ПРОВЕРКА)
+-- АВТОФАРМ (BODY POSITION)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -493,37 +481,23 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Проверка: в лобби или мертв?
                 local isLobby = Workspace:FindFirstChild("Lobby") ~= nil
                 local isDead = hum.Health <= 0
                 
-                if isLobby or isDead then
-                    -- Ничего не делаем, просто стоим
-                    hum.PlatformStand = false
-                    hrp.Anchored = false
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = true end
-                    end
-                else
-                    -- В раунде ищем монеты
+                if not isLobby and not isDead then
                     local target = nil
-                    local shortestDist = math.huge
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         local n = obj.Name:lower()
                         if n:find("coin") or n:find("candy") or n:find("drop") then
                             local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
                             if part and part:IsA("BasePart") then
-                                local dist = (hrp.Position - part.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    target = part
-                                end
+                                target = part
+                                break
                             end
                         end
                     end
 
                     if target then
-                        -- Летим к монете
                         hum.MaxHealth = math.huge
                         hum.Health = math.huge
                         hum.PlatformStand = true
@@ -531,50 +505,70 @@ task.spawn(function()
                             if v:IsA("BasePart") then v.CanCollide = false end
                         end
                         
-                        hrp.Anchored = true
-                        
-                        local distance = (hrp.Position - target.Position).Magnitude
-                        local time = distance / State.TweenSpeed
-                        
-                        local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
-                        tween:Play()
-                        tween.Completed:Wait()
-                        
-                        if firetouchinterest then
-                            firetouchinterest(hrp, target, 0)
-                            firetouchinterest(hrp, target, 1)
+                        local bp = hrp:FindFirstChild("QovickFarmBP")
+                        if not bp then
+                            bp = Instance.new("BodyPosition", hrp)
+                            bp.Name = "QovickFarmBP"
+                            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                            bp.P = 50000
+                            bp.D = 1000
                         end
                         
-                        task.wait(0.5)
+                        bp.Position = target.Position
+                        
+                        if (hrp.Position - target.Position).Magnitude < 3 then
+                            if firetouchinterest then
+                                firetouchinterest(hrp, target, 0)
+                                firetouchinterest(hrp, target, 1)
+                            end
+                            task.wait(0.5)
+                        end
                     else
-                        -- Монет нет, просто висим
-                        hrp.Anchored = true
-                        hum.PlatformStand = true
+                        local bp = hrp:FindFirstChild("QovickFarmBP")
+                        if bp then bp:Destroy() end
+                        hum.PlatformStand = false
+                        for _, v in pairs(char:GetDescendants()) do
+                            if v:IsA("BasePart") then v.CanCollide = true end
+                        end
+                    end
+                else
+                    local bp = hrp:FindFirstChild("QovickFarmBP")
+                    if bp then bp:Destroy() end
+                    hum.PlatformStand = false
+                    for _, v in pairs(char:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide = true end
                     end
                 end
-            end
-        else
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.Anchored = false
-                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
             end
         end
     end
 end)
 
--- АВТО-ПОДБОР ПИСТОЛЕТА
-RunService.Heartbeat:Connect(function()
-    if not State.AutoPickupGun then return end
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj:IsA("Tool") and obj.Name == "Gun" then
-            local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
-            if handle then
-                char.HumanoidRootPart.CFrame = handle.CFrame
-                task.wait(0.1)
+-- ==========================================
+-- AUTO TP TO GUN
+-- ==========================================
+task.spawn(function()
+    while task.wait(0.5) do
+        if State.AutoTPGun then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local gun = nil
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj.Name == "GunDrop" or (obj:IsA("Tool") and obj.Name == "Gun" and obj.Parent == Workspace) then
+                        local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+                        if handle then
+                            gun = handle
+                            break
+                        end
+                    end
+                end
+                if gun then
+                    local oldPos = hrp.CFrame
+                    hrp.CFrame = gun.CFrame
+                    task.wait(0.1)
+                    hrp.CFrame = oldPos
+                end
             end
         end
     end
