@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (All-In-One)
+-- Qovick Hub :: Ultimate Custom UI (All-In-One + Fixed Hotkey)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -49,7 +49,7 @@ local Title = Instance.new("TextLabel", TopBar)
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Qovick Hub [RightShift to Close]"
+Title.Text = "Qovick Hub [RightCtrl to Close]"
 Title.TextColor3 = Colors.Accent
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
@@ -80,11 +80,10 @@ local ContentList = Instance.new("UIListLayout", ContentArea)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
 ContentList.Padding = UDim.new(0, 8)
 
--- Hotkey
+-- БРОНЕБОЙНЫЙ ХОТКЕЙ (RightControl)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        Main.Visible = not Main.Visible
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        ScreenGui.Enabled = not ScreenGui.Enabled
     end
 end)
 
