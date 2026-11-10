@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Anchor Under-Farm)
+-- Qovick Hub :: Ultimate Custom UI (Fixed Under-Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -540,16 +540,20 @@ RunService.Heartbeat:Connect(function()
         char.HumanoidRootPart.Anchored = true
         if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = true end
         
-        -- Смещение на 3 стада вниз (чтобы задеть хитбоксом)
-        char.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, -3, 0)
+        -- Смещение на 1.5 стада вниз (чтобы задеть хитбоксом)
+        char.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, -1.5, 0)
         char.HumanoidRootPart.Velocity = Vector3.zero
         
-        -- Активируем касание
+        -- Активируем касание всеми частями тела
         if firetouchinterest then
-            pcall(function()
-                firetouchinterest(char.HumanoidRootPart, target, 0)
-                firetouchinterest(char.HumanoidRootPart, target, 1)
-            end)
+            for _, part in pairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    pcall(function()
+                        firetouchinterest(part, target, 0)
+                        firetouchinterest(part, target, 1)
+                    end)
+                end
+            end
         end
         
         -- Промпт E
