@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fixed Fly, ESP Clean, Under-Farm)
+-- Qovick Hub :: Ultimate Custom UI (Final)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -276,7 +276,6 @@ Player:CreateSlider("Jump Power", 50, 300, 50, function(v)
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end
 end)
 
--- ИСПРАВЛЕННЫЙ FLY
 Player:CreateToggle("Fly [Space/Shift]", false, function(v)
     State.FlyActive = v
     local char = LocalPlayer.Character
@@ -357,7 +356,6 @@ Settings:CreateButton("Unload Hub", function() ScreenGui:Destroy() end)
 local Drawings = {}
 local Highlights = {}
 
--- Очистка при выходе игрока
 Players.PlayerRemoving:Connect(function(p)
     if Drawings[p] then
         if Drawings[p].Text then Drawings[p].Text:Remove() end
@@ -507,25 +505,21 @@ RunService.Heartbeat:Connect(function()
     end
 
     if targetCoin then
-        -- Тепаемся ПОД монету и якорим (чтобы зависнуть)
         char.HumanoidRootPart.CFrame = targetCoin.CFrame * CFrame.new(0, -3, 0)
         char.HumanoidRootPart.Velocity = Vector3.zero
         char.HumanoidRootPart.Anchored = true
         
-        -- Вызываем прикосновение
         if firetouchinterest then
             firetouchinterest(char.HumanoidRootPart, targetCoin, 0)
             firetouchinterest(char.HumanoidRootPart, targetCoin, 1)
         end
         
-        -- Ждем пока монета исчезнет (собирается), максимум 1 сек
         local waitTime = 0
         while targetCoin.Parent and waitTime < 1 do
             task.wait(0.05)
             waitTime = waitTime + 0.05
         end
         
-        -- Снимаем якорь и летим дальше
         char.HumanoidRootPart.Anchored = false
     end
 end)
@@ -575,3 +569,9 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+    if State.SilentAim and closestTarget then
+        local targetPart = closestTarget:FindFirstChild(State.TargetPart) or closestTarget:FindFirstChild("HumanoidRootPart")
+        if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
+    end
+    if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
+end)
