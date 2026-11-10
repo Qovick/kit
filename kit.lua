@@ -1,6 +1,4 @@
--- Qovick Hub :: Custom UI
--- Собственный интерфейс в стиле Graphite & Amber
-
+-- Qovick Hub :: Ultimate Custom UI
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -9,14 +7,14 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
--- === ЦВЕТА ===
 local Colors = {
     Bg = Color3.fromRGB(18, 18, 20),
     Sidebar = Color3.fromRGB(22, 22, 26),
     Panel = Color3.fromRGB(28, 28, 34),
     PanelHover = Color3.fromRGB(35, 35, 42),
-    Accent = Color3.fromRGB(240, 168, 64), -- Оранжевый
+    Accent = Color3.fromRGB(240, 168, 64),
     Text = Color3.fromRGB(240, 240, 240),
     TextDim = Color3.fromRGB(150, 150, 160)
 }
@@ -26,7 +24,6 @@ ScreenGui.Name = "QovickUI_Main"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game.CoreGui
 
--- === ГЛАВНОЕ ОКНО ===
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 620, 0, 420)
 Main.Position = UDim2.new(0.5, -310, 0.5, -210)
@@ -42,7 +39,6 @@ Stroke.Color = Colors.Accent
 Stroke.Thickness = 1
 Stroke.Transparency = 0.7
 
--- Топбар (заголовок)
 local TopBar = Instance.new("Frame", Main)
 TopBar.Size = UDim2.new(1, 0, 0, 45)
 TopBar.BackgroundColor3 = Colors.Sidebar
@@ -53,13 +49,12 @@ local Title = Instance.new("TextLabel", TopBar)
 Title.Size = UDim2.new(1, -40, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "Qovick Hub"
+Title.Text = "Qovick Hub [RightShift to Close]"
 Title.TextColor3 = Colors.Accent
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
+Title.TextSize = 16
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- === САЙДБАР (Вкладки) ===
 local Sidebar = Instance.new("Frame", Main)
 Sidebar.Size = UDim2.new(0, 160, 1, -45)
 Sidebar.Position = UDim2.new(0, 0, 0, 45)
@@ -85,7 +80,14 @@ local ContentList = Instance.new("UIListLayout", ContentArea)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
 ContentList.Padding = UDim.new(0, 8)
 
--- === API ===
+-- Hotkey
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        Main.Visible = not Main.Visible
+    end
+end)
+
 local Tabs = {}
 local Pages = {}
 
@@ -100,7 +102,6 @@ function QovickUI:CreateTab(name)
     TabBtn.TextXAlignment = Enum.TextXAlignment.Left
     TabBtn.AutoButtonColor = false
     Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
-    
     local Padding = Instance.new("UIPadding", TabBtn)
     Padding.PaddingLeft = UDim.new(0, 15)
 
@@ -128,13 +129,9 @@ function QovickUI:CreateTab(name)
         TabBtn.TextColor3 = Colors.Bg
     end)
 
-    if #Tabs == 1 then
-        task.defer(function() TabBtn:Activate() end)
-    end
-
+    if #Tabs == 1 then task.defer(function() TabBtn:Activate() end) end
     local TabAPI = {}
 
-    -- Кнопка
     function TabAPI:CreateButton(text, callback)
         local Btn = Instance.new("TextButton", Page)
         Btn.Size = UDim2.new(1, 0, 0, 35)
@@ -145,22 +142,16 @@ function QovickUI:CreateTab(name)
         Btn.Text = text
         Btn.AutoButtonColor = false
         Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
-        
         Btn.MouseEnter:Connect(function() TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Colors.PanelHover}):Play() end)
         Btn.MouseLeave:Connect(function() TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Colors.Panel}):Play() end)
-        
-        Btn.MouseButton1Click:Connect(function()
-            if callback then callback() end
-        end)
+        Btn.MouseButton1Click:Connect(function() if callback then callback() end end)
     end
 
-    -- Тумблер
     function TabAPI:CreateToggle(text, default, callback)
         local Holder = Instance.new("Frame", Page)
         Holder.Size = UDim2.new(1, 0, 0, 40)
         Holder.BackgroundColor3 = Colors.Panel
         Instance.new("UICorner", Holder).CornerRadius = UDim.new(0, 6)
-
         local Label = Instance.new("TextLabel", Holder)
         Label.Size = UDim2.new(0.7, 0, 1, 0)
         Label.Position = UDim2.new(0, 15, 0, 0)
@@ -170,25 +161,21 @@ function QovickUI:CreateTab(name)
         Label.Font = Enum.Font.Gotham
         Label.TextSize = 14
         Label.TextXAlignment = Enum.TextXAlignment.Left
-
         local ToggleBg = Instance.new("Frame", Holder)
         ToggleBg.Size = UDim2.new(0, 36, 0, 18)
         ToggleBg.Position = UDim2.new(1, -50, 0.5, -9)
         ToggleBg.BackgroundColor3 = default and Colors.Accent or Color3.fromRGB(50, 50, 60)
         Instance.new("UICorner", ToggleBg).CornerRadius = UDim.new(1, 0)
-
         local Dot = Instance.new("Frame", ToggleBg)
         Dot.Size = UDim2.new(0, 14, 0, 14)
         Dot.Position = default and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
         Dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
-
         local state = default
         local Btn = Instance.new("TextButton", Holder)
         Btn.Size = UDim2.new(1, 0, 1, 0)
         Btn.BackgroundTransparency = 1
         Btn.Text = ""
-
         Btn.MouseButton1Click:Connect(function()
             state = not state
             TweenService:Create(ToggleBg, TweenInfo.new(0.2), {BackgroundColor3 = state and Colors.Accent or Color3.fromRGB(50, 50, 60)}):Play()
@@ -197,13 +184,11 @@ function QovickUI:CreateTab(name)
         end)
     end
 
-    -- Слайдер
     function TabAPI:CreateSlider(text, min, max, default, callback)
         local Holder = Instance.new("Frame", Page)
         Holder.Size = UDim2.new(1, 0, 0, 50)
         Holder.BackgroundColor3 = Colors.Panel
         Instance.new("UICorner", Holder).CornerRadius = UDim.new(0, 6)
-
         local Label = Instance.new("TextLabel", Holder)
         Label.Size = UDim2.new(1, -30, 0, 20)
         Label.Position = UDim2.new(0, 15, 0, 5)
@@ -213,23 +198,19 @@ function QovickUI:CreateTab(name)
         Label.Font = Enum.Font.Gotham
         Label.TextSize = 14
         Label.TextXAlignment = Enum.TextXAlignment.Left
-
         local BarBg = Instance.new("Frame", Holder)
         BarBg.Size = UDim2.new(1, -30, 0, 6)
         BarBg.Position = UDim2.new(0, 15, 0, 30)
         BarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
         Instance.new("UICorner", BarBg).CornerRadius = UDim.new(1, 0)
-
         local Fill = Instance.new("Frame", BarBg)
         Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
         Fill.BackgroundColor3 = Colors.Accent
         Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
-
         local Btn = Instance.new("TextButton", BarBg)
         Btn.Size = UDim2.new(1, 0, 1, 0)
         Btn.BackgroundTransparency = 1
         Btn.Text = ""
-
         local dragging = false
         Btn.MouseButton1Down:Connect(function() dragging = true end)
         UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
@@ -246,39 +227,113 @@ function QovickUI:CreateTab(name)
             end
         end)
     end
-
     return TabAPI
 end
 
--- === ФУНКЦИИ ЧИТОВ ===
+-- ==========================================
+-- ЛОГИКА И ВКЛАДКИ
+-- ==========================================
 local State = {
-    SilentAim = false, AutoShoot = false, FOVSize = 120,
+    SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
-    ESP = false, WalkSpeed = 16, JumpPower = 50, Fly = false
+    ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, MaxDist = 2000,
+    WalkSpeed = 16, JumpPower = 50, FlyActive = false,
+    AutoCoins = false, FlingTarget = nil
 }
 
--- Вкладки
-local SheriffTab = QovickUI:CreateTab("Sheriff")
-SheriffTab:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
-SheriffTab:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
-SheriffTab:CreateSlider("FOV Size", 10, 800, 120, function(v) State.FOVSize = v end)
+local Sheriff = QovickUI:CreateTab("Sheriff")
+Sheriff:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
+Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
+Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 
-local MurdererTab = QovickUI:CreateTab("Murderer")
-MurdererTab:CreateToggle("Kill Aura", false, function(v) State.KillAura = v end)
-MurdererTab:CreateSlider("Kill Range", 5, 100, 20, function(v) State.KillDist = v end)
+local Murderer = QovickUI:CreateTab("Murderer")
+Murderer:CreateToggle("Kill Aura", false, function(v) State.KillAura = v end)
+Murderer:CreateSlider("Kill Range", 5, 100, 20, function(v) State.KillDist = v end)
 
-local VisualsTab = QovickUI:CreateTab("Visuals")
-VisualsTab:CreateToggle("Enable ESP", false, function(v) State.ESP = v end)
+local Visuals = QovickUI:CreateTab("Visuals")
+Visuals:CreateToggle("Enable ESP", false, function(v) State.ESP = v end)
+Visuals:CreateToggle("Show Name", true, function(v) State.ESPName = v end)
+Visuals:CreateToggle("Show Box", false, function(v) State.ESPBox = v end)
+Visuals:CreateToggle("Show Tracers", false, function(v) State.ESPTracer = v end)
 
-local PlayerTab = QovickUI:CreateTab("Player")
-PlayerTab:CreateSlider("Walk Speed", 16, 200, 16, function(v) 
+local Player = QovickUI:CreateTab("Player")
+Player:CreateSlider("Walk Speed", 16, 200, 16, function(v)
     State.WalkSpeed = v
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = v end
+end)
+Player:CreateSlider("Jump Power", 50, 300, 50, function(v)
+    State.JumpPower = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end
+end)
+Player:CreateToggle("Fly", false, function(v)
+    State.FlyActive = v
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if v then
+        local bv = Instance.new("BodyVelocity", hrp); bv.Name = "QovickFly"; bv.MaxForce = Vector3.new(1,1,1)*100000; bv.Velocity = Vector3.zero
+        local bg = Instance.new("BodyGyro", hrp); bg.Name = "QovickGyro"; bg.MaxTorque = Vector3.new(1,1,1)*100000; bg.P = 1000
+        RunService.RenderStepped:Connect(function()
+            if not State.FlyActive or not hrp or not hrp.Parent then return end
+            local move = UserInputService:GetMoveVector()
+            bv.Velocity = Camera.CFrame:VectorToWorldSpace(Vector3.new(move.X, 0, move.Z)) * 50
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then bv.Velocity = bv.Velocity + Vector3.new(0, 50, 0) end
+            bg.CFrame = Camera.CFrame
+        end)
+    else
+        if hrp:FindFirstChild("QovickFly") then hrp.QovickFly:Destroy() end
+        if hrp:FindFirstChild("QovickGyro") then hrp.QovickGyro:Destroy() end
     end
 end)
 
--- === ЛОГИКА ESP ===
+local Tp = QovickUI:CreateTab("Teleport")
+Tp:CreateButton("TP Murderer", function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (p.Character and p.Character:FindFirstChild("Knife")) then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame; break
+            end
+        end
+    end
+end)
+Tp:CreateButton("TP Sheriff", function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if (p.Backpack and p.Backpack:FindFirstChild("Gun")) or (p.Character and p.Character:FindFirstChild("Gun")) then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame; break
+            end
+        end
+    end
+end)
+
+local Farm = QovickUI:CreateTab("Farm")
+Farm:CreateToggle("Auto Collect Coins", false, function(v) State.AutoCoins = v end)
+
+local Troll = QovickUI:CreateTab("Troll")
+Troll:CreateToggle("Fake Headless", false, function(v)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        if v then
+            if not head:FindFirstChildOfClass("SpecialMesh") then
+                local m = Instance.new("SpecialMesh", head); m.Scale = Vector3.new(0,0,0)
+            end
+        else
+            if head:FindFirstChildOfClass("SpecialMesh") then head:FindFirstChildOfClass("SpecialMesh"):Destroy() end
+        end
+    end
+end)
+
+local Settings = QovickUI:CreateTab("Settings")
+Settings:CreateButton("Unload Hub", function()
+    ScreenGui:Destroy()
+end)
+
+-- ==========================================
+-- ЦИКЛЫ
+-- ==========================================
 local Drawings = {}
 RunService.RenderStepped:Connect(function()
     if not State.ESP then
@@ -288,18 +343,76 @@ RunService.RenderStepped:Connect(function()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = p.Character.HumanoidRootPart
-            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-            if onScreen then
-                if not Drawings[p] then Drawings[p] = { Text = Drawing.new("Text") } end
-                Drawings[p].Text.Visible = true
-                Drawings[p].Text.Text = p.Name
-                Drawings[p].Text.Color = Colors.Accent
-                Drawings[p].Text.Size = 16
-                Drawings[p].Text.Center = true
-                Drawings[p].Text.Outline = true
-                Drawings[p].Text.Position = Vector2.new(pos.X, pos.Y - 20)
-            else
-                if Drawings[p] then Drawings[p].Text.Visible = false end
+            if (Camera.CFrame.Position - hrp.Position).Magnitude <= State.MaxDist then
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    if not Drawings[p] then Drawings[p] = { Text = Drawing.new("Text"), Box = Drawing.new("Square"), Tracer = Drawing.new("Line") } end
+                    local d = Drawings[p]
+                    d.Text.Visible = State.ESPName
+                    if State.ESPName then
+                        d.Text.Text = p.Name; d.Text.Color = Colors.Accent; d.Text.Size = 16; d.Text.Center = true; d.Text.Outline = true; d.Text.Position = Vector2.new(pos.X, pos.Y - 20)
+                    end
+                    d.Box.Visible = State.ESPBox
+                    if State.ESPBox then
+                        d.Box.Color = Colors.Accent; d.Box.Thickness = 1; d.Box.Size = Vector2.new(50, 80); d.Box.Position = Vector2.new(pos.X - 25, pos.Y - 40)
+                    end
+                    d.Tracer.Visible = State.ESPTracer
+                    if State.ESPTracer then
+                        d.Tracer.Color = Colors.Accent; d.Tracer.Thickness = 1; d.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); d.Tracer.To = Vector2.new(pos.X, pos.Y + 20)
+                    end
+                else
+                    if Drawings[p] then Drawings[p].Text.Visible = false; Drawings[p].Box.Visible = false; Drawings[p].Tracer.Visible = false end
+                end
+            end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    local closestTarget = nil
+    local shortestDist = State.FOVSize
+    local mousePos = UserInputService:GetMouseLocation()
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local tChar = p.Character
+            local tHrp = tChar.HumanoidRootPart
+            local hum = tChar:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                if State.KillAura then
+                    if (hrp.Position - tHrp.Position).Magnitude <= State.KillDist then
+                        local tool = char:FindFirstChildWhichIsA("Tool")
+                        if tool and tool:FindFirstChild("Kill") then tool.Kill:FireServer(tChar) end
+                    end
+                end
+                if State.SilentAim then
+                    local vec, onScreen = Camera:WorldToViewportPoint(tHrp.Position)
+                    if onScreen then
+                        local distToMouse = (Vector2.new(vec.X, vec.Y) - mousePos).Magnitude
+                        if distToMouse < shortestDist then shortestDist = distToMouse; closestTarget = tChar end
+                    end
+                end
+            end
+        end
+    end
+    if State.SilentAim and closestTarget then
+        local targetPart = closestTarget:FindFirstChild(State.TargetPart) or closestTarget:FindFirstChild("HumanoidRootPart")
+        if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
+    end
+    if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not State.AutoCoins then return end
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj.Name == "Coin" and obj:FindFirstChild("Handle") then
+            if (char.HumanoidRootPart.Position - obj.Handle.Position).Magnitude < 100 then
+                pcall(function() char.Humanoid:MoveTo(obj.Handle.Position) end)
             end
         end
     end
