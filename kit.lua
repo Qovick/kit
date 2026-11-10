@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Absolute Safe Farm)
+-- Qovick Hub :: Ultimate Custom UI (Pure Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,7 +344,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Absolute Safe Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Fly AutoFarm (Walls)", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (БЕЗОПАСНЫЙ)
+-- АВТОФАРМ (ПОЛЁТ СКВОЗЬ СТЕНЫ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -481,37 +481,39 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Ищем монету
+                -- Бессмертие и отключение физики
+                hum.MaxHealth = math.huge
+                hum.Health = math.huge
+                hum.PlatformStand = true
+                
+                -- Отключаем коллизию
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
+
+                -- Ищем ближайшую монету
                 local target = nil
+                local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     local n = obj.Name:lower()
-                    if n:find("candy") or n:find("coin") or n:find("drop") then
+                    if n:find("coin") or n:find("candy") or n:find("drop") then
                         local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
                         if part and part:IsA("BasePart") then
-                            target = part
-                            break
+                            local dist = (hrp.Position - part.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                target = part
+                            end
                         end
                     end
                 end
 
                 if target then
-                    -- Фарм
-                    hum.MaxHealth = math.huge
-                    hum.Health = math.huge
-                    hum.PlatformStand = true
-                    
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = false end
-                    end
-                    
-                    -- Уходим под карту (15 стадов вниз от монеты)
-                    local underPos = target.Position - Vector3.new(0, 15, 0)
-                    hrp.CFrame = CFrame.new(underPos)
-                    task.wait(0.1)
-                    
                     -- Летим к монете
-                    local steps = 15
+                    local distance = (hrp.Position - target.Position).Magnitude
+                    local steps = math.max(5, math.floor(distance / 5))
                     local startPos = hrp.Position
+                    
                     for i = 1, steps do
                         hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
                         task.wait(0.02)
@@ -524,19 +526,9 @@ task.spawn(function()
                     end
                     
                     task.wait(0.5)
-                    
-                    -- Обратно под карту
-                    local endPos = target.Position - Vector3.new(0, 15, 0)
-                    for i = 1, steps do
-                        hrp.CFrame = CFrame.new(target.Position:Lerp(endPos, i / steps))
-                        task.wait(0.02)
-                    end
                 else
-                    -- Если монет нет, просто стоим на месте (в лобби)
-                    hum.PlatformStand = false
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = true end
-                    end
+                    -- Если монет нет, просто висим в воздухе
+                    hrp.CFrame = hrp.CFrame
                 end
             end
         end
