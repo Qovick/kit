@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Halloween Farm Update)
+-- Qovick Hub :: Ultimate Custom UI (Smart AutoFarm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -318,7 +318,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Coins & Candy)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("AutoFarm (Smart)", false, function(v) State.AutoFarm = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -427,28 +427,24 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ И FULL BAG ЛОГИКА (Хэллоуин)
+-- УМНЫЙ АВТОФАРМ
 -- ==========================================
+local collectedCount = 0
+
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
-    -- Проверка полного мешка (лимит 50 монет)
+    -- Ищем полный мешок (по атрибутам или значению)
     local bagSize = 0
-    for _, obj in pairs(char:GetChildren()) do
-        if obj.Name == "CoinBag" or obj.Name == "Bag" then
-            bagSize = obj:GetAttribute("Amount") or obj.Value or 0
-        end
-    end
-    if bagSize == 0 then
-        -- Альтернативная проверка для некоторых версий
-        for _, obj in pairs(LocalPlayer:GetChildren()) do
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, obj in pairs(backpack:GetChildren()) do
             if obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then bagSize = 50 end
         end
     end
 
-    if bagSize >= 50 or bagSize == 50 then
-        -- Убить всех
+    if bagSize >= 50 then
         if State.KillAllOnFull then
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid").Health > 0 then
@@ -459,7 +455,6 @@ RunService.Heartbeat:Connect(function()
                 end
             end
         end
-        -- Ресет
         if State.ResetOnFull or State.KillAllOnFull then
             char:BreakJoints()
             task.wait(1)
@@ -467,13 +462,25 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Сам Телепорт-Фарм
+    -- Умный поиск предметов
     if not State.AutoFarm then return end
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if (obj.Name == "Coin" or obj.Name == "CoinDrop" or obj.Name == "Candy" or obj.Name == "EventCoin") and obj:FindFirstChild("Handle") then
-            if (char.HumanoidRootPart.Position - obj.Handle.Position).Magnitude < 300 then
-                char.HumanoidRootPart.CFrame = obj.Handle.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.05) -- Ускоренный сбор
+        local n = obj.Name:lower()
+        -- Ищем монеты, конфеты или папки с дропом
+        if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
+            local handle = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+            if handle then
+                local dist = (char.HumanoidRootPart.Position - handle.Position).Magnitude
+                if dist < 300 then
+                    -- Телепорт
+                    char.HumanoidRootPart.CFrame = handle.CFrame + Vector3.new(0, 3, 0)
+                    -- Для надежности делаем имитацию клика/касания
+                    if firetouchinterest then
+                        firetouchinterest(char.HumanoidRootPart, handle, 0)
+                        firetouchinterest(char.HumanoidRootPart, handle, 1)
+                    end
+                    task.wait(0.05) -- Задержка, чтобы не крашнуло
+                end
             end
         end
     end
