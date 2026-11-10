@@ -1,340 +1,267 @@
--- mm2 kit :: fresh write
--- part 1/4 : config, registry, fetch, tap guard, resolve
+-- Qovick Hub :: Ultimate Build
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local Kit = {}
-
-Kit.cfg = {
-    name      = "Kit",
-    tagline   = "MM2 loader",
-    theme     = "graphite",
-    accent    = Color3.fromRGB(240, 168, 64),
-    hotkey    = Enum.KeyCode.RightControl,
-    uiLib     = "https://raw.githubusercontent.com/PulseZax/Slate/refs/heads/main/.lua",
-    limit     = 6,       -- seconds before "still warming"
-    tapGap    = 0.5,     -- seconds between accepted taps
-}
-
-Kit.games = {
-    {
-        id       = "mm2",
-        title    = "Murder Mystery 2",
-        places   = { 142823291 },
-        universe = 66654135,
-        source   = "https://api.luarmor.net/files/v4/loaders/5857a6cfae3b902eb3c2dff7cdbf173b.lua",
-        visible  = true,
-        tint     = Color3.fromRGB(214, 68, 88),
-    },
-}
-
-Kit.thumb = function(placeId)
-    return string.format("rbxthumb://type=Asset&id=%d&w=150&h=150", placeId)
-end
-
-Kit.pull = function(entry)
-    local ok, err = pcall(function()
-        local body = game:HttpGet(entry.source)
-        local chunk = loadstring(body, "@kit:" .. entry.id)
-        if not chunk then
-            error("compile failed")
-        end
-        return chunk()
-    end)
-    return ok, err
-end
-
-Kit.tap = function(holder, action)
-    if type(holder) ~= "table" then
-        return
-    end
-    local mark = 0
-    for _, node in ipairs({ holder.button, holder.card, holder.hitbox }) do
-        if typeof(node) == "Instance" then
-            pcall(function()
-                node.Active = true
-                node.InputBegan:Connect(function(input)
-                    local hit = input.UserInputType == Enum.UserInputType.MouseButton1
-                        or input.UserInputType == Enum.UserInputType.Touch
-                    if not hit then
-                        return
-                    end
-                    if os.clock() - mark < Kit.cfg.tapGap then
-                        return
-                    end
-                    mark = os.clock()
-                    local ok, err = pcall(action)
-                    if not ok then
-                        warn("kit tap :: " .. tostring(err))
-                    end
-                end)
-            end)
-        end
-    end
-end
-
-Kit.pick = function(placeId, universeId)
-    for _, game in ipairs(Kit.games) do
-        if game.universe and game.universe == universeId then
-            return game
-        end
-    end
-    for _, game in ipairs(Kit.games) do
-        for _, id in ipairs(game.places) do
-            if id == placeId then
-                return game
-            end
-        end
-    end
-    return nil
-end
-
-_G.Kit = Kit
-
-local hit = Kit.pick(game.PlaceId, game.GameId)
-if hit then
-    local ok, err = Kit.pull(hit)
-    if not ok then
-        warn("kit :: " .. hit.title .. " -> " .. tostring(err))
-    end
-    return
-end
-
-if type(_G.KitWin) == "table" and _G.KitWin.window then
-    pcall(function()
-        _G.KitWin.window:Destroy()
-    end)
-end
-_G.KitWin = {}
--- mm2 kit :: fresh write
--- part 2/4 : window, theme, tab, status header
-
-local Kit = _G.Kit
-if not Kit then
-    warn("kit :: core missing, load part 1 first")
-    return
-end
-
-local Win = _G.KitWin
-if not Win then
-    warn("kit :: window slot missing")
-    return
-end
-
-local cfg = Kit.cfg
-
-local Slate = loadstring(game:HttpGet(cfg.uiLib), "@kit:ui")()
-if not Slate then
-    warn("kit :: ui lib failed")
-    return
-end
-
-pcall(function() Slate.Cleanup() end)
-pcall(function() Slate:PreloadIcons({ "lucide" }) end)
-
-local window = Slate:CreateWindow({
-    Name      = cfg.name,
-    Subtitle  = cfg.tagline,
-    Icon      = "activity",
-    Logo      = true,
-    Size      = UDim2.fromOffset(680, 460),
-    ToggleKey = cfg.hotkey,
+local Window = Rayfield:CreateWindow({
+   Name = "Qovick Hub",
+   LoadingTitle = "Qovick Hub",
+   LoadingSubtitle = "by Sam",
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = false
 })
 
-pcall(function() Slate.Theme.Preset("Graphite") end)
-pcall(function() Slate:SetFontFamily("Inter") end)
-pcall(function() window:SetBackdrop("noise") end)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
-pcall(function()
-    local root = window.root
-    local corner = root:FindFirstChildOfClass("UICorner")
-    if corner then
-        corner.CornerRadius = UDim.new(0, 8)
-    end
-    local stroke = root:FindFirstChildOfClass("UIStroke")
-    if stroke then
-        stroke.Thickness = 1
-        stroke.Color = cfg.accent
-        stroke.Transparency = 0.55
-    end
-end)
+local State = {
+    SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
+    KillAura = false, KillDist = 20, AutoKill = false, KnifeThrow = false,
+    ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, MaxDist = 2000,
+    WalkSpeed = 16, JumpPower = 50, FlyActive = false,
+    AutoCoins = false, AutoRespawn = false, FarmDist = 100,
+    FlingTarget = nil, FlingPanel = false
+}
 
-Win.window = window
-Win.slate = Slate
-Win.tab = window:CreateTab({ Name = "Kit", Icon = "server" })
+-- 1. SHERIFF
+local SheriffTab = Window:CreateTab("Sheriff", 4483362458)
+SheriffTab:CreateSection("Aimbot")
+SheriffTab:CreateToggle({ Name = "Silent Aim", CurrentValue = false, Callback = function(v) State.SilentAim = v end })
+SheriffTab:CreateToggle({ Name = "Auto Shoot", CurrentValue = false, Callback = function(v) State.AutoShoot = v end })
+SheriffTab:CreateSlider({ Name = "Aimbot FOV", Range = {10, 800}, Increment = 10, Suffix = "px", CurrentValue = 120, Callback = function(v) State.FOVSize = v end })
+SheriffTab:CreateDropdown({ Name = "Hitbox", Options = {"Head", "HumanoidRootPart"}, CurrentOption = {"Head"}, Callback = function(o) State.TargetPart = o[1] end })
 
-local mapName = "unknown map"
-pcall(function()
-    local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
-    if info and info.Name then
-        mapName = info.Name
-    end
-end)
+-- 2. MURDERER
+local MurdererTab = Window:CreateTab("Murderer", 4483362458)
+MurdererTab:CreateSection("Kill Options")
+MurdererTab:CreateToggle({ Name = "Kill Aura", CurrentValue = false, Callback = function(v) State.KillAura = v end })
+MurdererTab:CreateSlider({ Name = "Kill Range", Range = {5, 100}, Increment = 1, Suffix = " st", CurrentValue = 20, Callback = function(v) State.KillDist = v end })
+MurdererTab:CreateToggle({ Name = "Auto Kill", CurrentValue = false, Callback = function(v) State.AutoKill = v end })
 
-local matched = Kit.pick(game.PlaceId, game.GameId)
+-- 3. VISUALS
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+VisualsTab:CreateSection("ESP")
+VisualsTab:CreateToggle({ Name = "Enable ESP", CurrentValue = false, Callback = function(v) State.ESP = v end })
+VisualsTab:CreateToggle({ Name = "Show Name", CurrentValue = true, Callback = function(v) State.ESPName = v end })
+VisualsTab:CreateToggle({ Name = "Show Box", CurrentValue = false, Callback = function(v) State.ESPBox = v end })
+VisualsTab:CreateToggle({ Name = "Show Tracers", CurrentValue = false, Callback = function(v) State.ESPTracer = v end })
 
-do
-    local head = Win.tab:CreateSection({ Name = "Status" })
-    head:Paragraph({
-        Name        = "Map: " .. mapName,
-        Description = matched
-            and ("Matched profile: " .. matched.title .. ". Auto-run fires on inject.")
-            or  ("No profile matches this map. Choose a build below."),
-    })
-end
--- mm2 kit :: fresh write
--- part 3/4 : build grid, arm button, timeout flow, notify
-
-local Kit = _G.Kit
-local Win = _G.KitWin
-if not Kit or not Win or not Win.tab then
-    warn("kit :: parts 1+2 required")
-    return
-end
-
-local cfg = Kit.cfg
-local Slate = Win.slate
-local tab = Win.tab
-
-local function runEntry(entry)
-    Slate:Notify({
-        Title       = cfg.name,
-        Description = "Arming " .. entry.title,
-        Icon        = "loader",
-        Duration    = 4,
-    })
-
-    task.spawn(function()
-        local state = { done = false, ok = nil, err = nil }
-
-        task.spawn(function()
-            state.ok, state.err = Kit.pull(entry)
-            state.done = true
+-- 4. PLAYER
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+PlayerTab:CreateSection("Movement")
+PlayerTab:CreateSlider({ Name = "Walk Speed", Range = {16, 200}, Increment = 1, Suffix = " spd", CurrentValue = 16, Callback = function(v)
+    State.WalkSpeed = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = v end
+end })
+PlayerTab:CreateSlider({ Name = "Jump Power", Range = {50, 300}, Increment = 5, Suffix = " pwr", CurrentValue = 50, Callback = function(v)
+    State.JumpPower = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end
+end })
+PlayerTab:CreateToggle({ Name = "Fly", CurrentValue = false, Callback = function(v)
+    State.FlyActive = v
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if v then
+        local bv = Instance.new("BodyVelocity", hrp); bv.Name = "QovickFly"; bv.MaxForce = Vector3.new(1,1,1)*100000; bv.Velocity = Vector3.zero
+        local bg = Instance.new("BodyGyro", hrp); bg.Name = "QovickGyro"; bg.MaxTorque = Vector3.new(1,1,1)*100000; bg.P = 1000
+        RunService.RenderStepped:Connect(function()
+            if not State.FlyActive or not hrp or not hrp.Parent then return end
+            local move = UserInputService:GetMoveVector()
+            bv.Velocity = Camera.CFrame:VectorToWorldSpace(Vector3.new(move.X, 0, move.Z)) * 50
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then bv.Velocity = bv.Velocity + Vector3.new(0, 50, 0) end
+            bg.CFrame = Camera.CFrame
         end)
+    else
+        if hrp:FindFirstChild("QovickFly") then hrp.QovickFly:Destroy() end
+        if hrp:FindFirstChild("QovickGyro") then hrp.QovickGyro:Destroy() end
+    end
+end })
 
-        local elapsed = 0
-        while not state.done and elapsed < cfg.limit do
-            task.wait(0.25)
-            elapsed = elapsed + 0.25
-        end
-
-        if not state.done then
-            Slate:Notify({
-                Title       = cfg.name,
-                Description = entry.title .. " still warming after " .. cfg.limit .. "s",
-                Icon        = "hourglass",
-                Tone        = "Warning",
-                Duration    = 9,
-            })
-        elseif not state.ok then
-            Slate:Notify({
-                Title       = cfg.name,
-                Description = entry.title .. " errored: " .. tostring(state.err),
-                Icon        = "octagon-alert",
-                Tone        = "Danger",
-                Duration    = 9,
-            })
-        else
-            Slate:Notify({
-                Title       = cfg.name,
-                Description = entry.title .. " armed",
-                Icon        = "check-circle",
-                Tone        = "Success",
-                Duration    = 6,
-            })
-        end
-    end)
-end
-
-do
-    local body = tab:CreateSection({ Name = "Builds" })
-    local grid = body:Grid({ Columns = 2, Height = 196, MinWidth = 188 })
-
-    for _, entry in ipairs(Kit.games) do
-        if entry.visible then
-            local card = grid:Invite({
-                Name        = entry.title,
-                Icon        = Kit.thumb(entry.places[1]),
-                Stats       = { { Text = "pid " .. tostring(entry.places[1]), Dot = entry.tint } },
-                Game        = "ROBLOX",
-                GameIcon    = "gamepad-2",
-                Tone        = entry.tint,
-                Glyph       = "play",
-                ButtonText  = "Arm",
-                ButtonColor = entry.tint,
-                CopiedText  = "Arming",
-                Callback    = function() runEntry(entry) end,
-            })
-            Kit.tap(card, function() runEntry(entry) end)
+-- 5. TELEPORT
+local TpTab = Window:CreateTab("Teleport", 4483362458)
+TpTab:CreateButton({ Name = "TP Murderer", Callback = function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (p.Character and p.Character:FindFirstChild("Knife")) then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame; break
+            end
         end
     end
-end
--- mm2 kit :: fresh write
--- part 4/4 : control, close, boot notify
-
-local Kit = _G.Kit
-local Win = _G.KitWin
-if not Kit or not Win or not Win.tab then
-    warn("kit :: parts 1-3 required")
-    return
-end
-
-local cfg = Kit.cfg
-local Slate = Win.slate
-local tab = Win.tab
-local window = Win.window
-
-do
-    local ctl = tab:CreateSection({ Name = "Control" })
-
-    ctl:Button({
-        Name = "Reload registry",
-        Icon = "refresh-cw",
-        Callback = function()
-            local n = 0
-            for _, entry in ipairs(Kit.games) do
-                if entry.visible then n = n + 1 end
+end })
+TpTab:CreateButton({ Name = "TP Sheriff", Callback = function()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if (p.Backpack and p.Backpack:FindFirstChild("Gun")) or (p.Character and p.Character:FindFirstChild("Gun")) then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame; break
             end
-            Slate:Notify({
-                Title       = cfg.name,
-                Description = string.format("Registry ok, %d profile(s) visible", n),
-                Icon        = "list",
-                Tone        = "Success",
-                Duration    = 4,
-            })
-        end,
-    })
+        end
+    end
+end })
 
-    ctl:Button({
-        Name = "Copy boot line",
-        Icon = "clipboard",
-        Callback = function()
-            local line = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/REPO/main/kit.lua"))()'
-            if setclipboard then
-                pcall(setclipboard, line)
-            end
-            Slate:Notify({
-                Title       = cfg.name,
-                Description = "boot line copied (edit REPO before sharing)",
-                Icon        = "clipboard-check",
-                Tone        = "Success",
-                Duration    = 5,
-            })
-        end,
-    })
+-- 6. FARM
+local FarmTab = Window:CreateTab("Farm", 4483362458)
+FarmTab:CreateToggle({ Name = "Auto Collect Coins", CurrentValue = false, Callback = function(v) State.AutoCoins = v end })
+FarmTab:CreateToggle({ Name = "Auto-Respawn", CurrentValue = false, Callback = function(v) State.AutoRespawn = v end })
 
-    ctl:Button({
-        Name = "Close kit",
-        Icon = "x",
-        Callback = function()
-            pcall(function() window:Destroy() end)
-            _G.KitWin = nil
-        end,
-    })
+-- 7. TROLL
+local TrollTab = Window:CreateTab("Troll", 4483362458)
+local playerList = {}
+local function updateList()
+    table.clear(playerList)
+    for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(playerList, p.Name) end end
 end
+updateList()
+Players.PlayerAdded:Connect(updateList)
+Players.PlayerRemoving:Connect(updateList)
+TrollTab:CreateDropdown({ Name = "Fling Target", Options = playerList, CurrentOption = {}, Callback = function(o) State.FlingTarget = o[1] end })
+TrollTab:CreateToggle({ Name = "Fling Player", CurrentValue = false, Callback = function(v)
+    State.FlingPanel = v
+    if v and State.FlingTarget then
+        local target = Players:FindFirstChild(State.FlingTarget)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local bv = Instance.new("BodyAngularVelocity", target.Character.HumanoidRootPart)
+            bv.AngularVelocity = Vector3.new(9999, 9999, 9999); bv.MaxTorque = Vector3.new(9999, 9999, 9999)
+            task.wait(1); bv:Destroy()
+        end
+    end
+end })
+TrollTab:CreateToggle({ Name = "Fake Headless", CurrentValue = false, Callback = function(v)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        if v then
+            if not head:FindFirstChildOfClass("SpecialMesh") then
+                local m = Instance.new("SpecialMesh", head); m.Scale = Vector3.new(0,0,0)
+            end
+        else
+            if head:FindFirstChildOfClass("SpecialMesh") then head:FindFirstChildOfClass("SpecialMesh"):Destroy() end
+        end
+    end
+end })
 
-Slate:Notify({
-    Title       = cfg.name,
-    Description = "Kit ready. Pick a build to arm.",
-    Icon        = "triangle-alert",
-    Tone        = "Warning",
-    Duration    = 8,
-})
+-- 8. SERVER
+local ServerTab = Window:CreateTab("Server", 4483362458)
+ServerTab:CreateButton({ Name = "Rejoin Server", Callback = function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end })
+ServerTab:CreateButton({ Name = "Server Hop", Callback = function()
+    local api = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+    local response = HttpService:JSONDecode(game:HttpGet(api))
+    if #response.data > 0 then
+        local target = response.data[math.random(1, #response.data)]
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, target.id, LocalPlayer)
+    end
+end })
+ServerTab:CreateButton({ Name = "Copy Job ID", Callback = function() if setclipboard then setclipboard(game.JobId) end end })
+
+-- 9. MOBILE
+local MobileUI = Instance.new("ScreenGui", game.CoreGui)
+MobileUI.Name = "QovickMobile"
+MobileUI.ResetOnSpawn = false
+local MobileBtn = Instance.new("TextButton", MobileUI)
+MobileBtn.Size = UDim2.new(0, 100, 0, 40)
+MobileBtn.Position = UDim2.new(0.5, -50, 0.8, 0)
+MobileBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+MobileBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MobileBtn.Text = "Kill All"
+MobileBtn.Font = Enum.Font.GothamBold
+MobileBtn.Visible = false
+MobileBtn.Active = true
+MobileBtn.Draggable = true
+
+local MobileTab = Window:CreateTab("Mobile", 4483362458)
+MobileTab:CreateToggle({ Name = "Show Screen Button", CurrentValue = false, Callback = function(v) MobileBtn.Visible = v end })
+
+-- 10. SETTINGS
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
+SettingsTab:CreateButton({ Name = "Unload Hub", Callback = function()
+    Rayfield:Destroy()
+    if MobileUI then MobileUI:Destroy() end
+end })
+SettingsTab:CreateButton({ Name = "Reset Character Stats", Callback = function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        LocalPlayer.Character.Humanoid.JumpPower = 50
+    end
+end })
+
+-- === ЛОГИКА ===
+local Drawings = {}
+RunService.RenderStepped:Connect(function()
+    if not State.ESP then
+        for _, d in pairs(Drawings) do d:Remove() end
+        Drawings = {}; return
+    end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = p.Character.HumanoidRootPart
+            if (Camera.CFrame.Position - hrp.Position).Magnitude <= State.MaxDist then
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    if not Drawings[p] then Drawings[p] = { Text = Drawing.new("Text"), Box = Drawing.new("Square"), Tracer = Drawing.new("Line") } end
+                    local d = Drawings[p]
+                    d.Text.Visible = State.ESPName
+                    if State.ESPName then
+                        d.Text.Text = p.Name; d.Text.Color = Color3.fromRGB(255,255,255); d.Text.Size = 16; d.Text.Center = true; d.Text.Outline = true; d.Text.Position = Vector2.new(pos.X, pos.Y - 20)
+                    end
+                    d.Box.Visible = State.ESPBox
+                    if State.ESPBox then
+                        d.Box.Color = Color3.fromRGB(255, 50, 50); d.Box.Thickness = 1; d.Box.Size = Vector2.new(50, 80); d.Box.Position = Vector2.new(pos.X - 25, pos.Y - 40)
+                    end
+                    d.Tracer.Visible = State.ESPTracer
+                    if State.ESPTracer then
+                        d.Tracer.Color = Color3.fromRGB(255,255,255); d.Tracer.Thickness = 1; d.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y); d.Tracer.To = Vector2.new(pos.X, pos.Y + 20)
+                    end
+                else
+                    if Drawings[p] then Drawings[p].Text.Visible = false; Drawings[p].Box.Visible = false; Drawings[p].Tracer.Visible = false end
+                end
+            end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    local closestTarget = nil
+    local shortestDist = State.FOVSize
+    local mousePos = UserInputService:GetMouseLocation()
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local tChar = p.Character
+            local tHrp = tChar.HumanoidRootPart
+            local hum = tChar:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                if State.KillAura then
+                    if (hrp.Position - tHrp.Position).Magnitude <= State.KillDist then
+                        local tool = char:FindFirstChildWhichIsA("Tool")
+                        if tool and tool:FindFirstChild("Kill") then tool.Kill:FireServer(tChar) end
+                    end
+                end
+                if State.SilentAim then
+                    local vec, onScreen = Camera:WorldToViewportPoint(tHrp.Position)
+                    if onScreen then
+                        local distToMouse = (Vector2.new(vec.X, vec.Y) - mousePos).Magnitude
+                        if distToMouse < shortestDist then shortestDist = distToMouse; closestTarget = tChar end
+                    end
+                end
+            end
+        end
+    end
+    
+    if State.SilentAim and closestTarget then
+        local targetPart = closestTarget:FindFirstChild(State.TargetPart) or closestTarget:FindFirstChild("HumanoidRootPart")
+        if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
+    end
+    if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
+end)
+
+Rayfield:Notify({ Title = "Qovick Hub", Content = "Loaded successfully!", Duration = 5 })
