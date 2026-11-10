@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fixed Under-Farm)
+-- Qovick Hub :: Ultimate Custom UI (Fastest Video AutoFarm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -342,16 +342,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Anchor Under)", false, function(v) 
-    State.AutoFarm = v 
-    if not v then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.Anchored = false
-            if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
-        end
-    end
-end)
+Farm:CreateToggle("Fastest AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -477,104 +468,77 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ЗАВИСАНИЕ ПОД МОНЕТОЙ)
+-- МГНОВЕННЫЙ АВТОФАРМ (КАК В ВИДЕО)
 -- ==========================================
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
-    -- Снимаем якорь, если фарм выключен
-    if not State.AutoFarm then
-        if char.HumanoidRootPart.Anchored then
-            char.HumanoidRootPart.Anchored = false
-            if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
-        end
-        return
-    end
-    
-    local bagSize = 0
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, obj in pairs(backpack:GetChildren()) do
-            if obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then bagSize = 50 end
-        end
-    end
+task.spawn(function()
+    while task.wait() do
+        if State.AutoFarm then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local bagSize = 0
+                local backpack = LocalPlayer:FindFirstChild("Backpack")
+                if backpack then
+                    for _, obj in pairs(backpack:GetChildren()) do
+                        if obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then bagSize = 50 end
+                    end
+                end
 
-    if bagSize >= 50 then
-        if State.KillAllOnFull then
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid").Health > 0 then
-                    local tool = char:FindFirstChildWhichIsA("Tool")
-                    if tool and tool:FindFirstChild("Kill") then
-                        tool.Kill:FireServer(p.Character)
+                if bagSize >= 50 then
+                    if State.KillAllOnFull then
+                        for _, p in pairs(Players:GetPlayers()) do
+                            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid").Health > 0 then
+                                local tool = char:FindFirstChildWhichIsA("Tool")
+                                if tool and tool:FindFirstChild("Kill") then
+                                    tool.Kill:FireServer(p.Character)
+                                end
+                            end
+                        end
+                    end
+                    if State.ResetOnFull or State.KillAllOnFull then
+                        char:BreakJoints()
+                        task.wait(1)
+                    end
+                else
+                    -- Поиск конфет
+                    local target = nil
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        local n = obj.Name:lower()
+                        if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
+                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                            if part and part:IsA("BasePart") then
+                                target = part
+                                break -- Берем первую попавшуюся для скорости
+                            end
+                        end
+                    end
+
+                    if target then
+                        -- Бессмертие на время прыжка
+                        if not char:FindFirstChild("QovickGod") then
+                            local ff = Instance.new("ForceField", char)
+                            ff.Name = "QovickGod"
+                            ff.Visible = false
+                        end
+
+                        -- Телепорт прямо в конфету и мгновенное касание
+                        char.HumanoidRootPart.CFrame = target.CFrame
+                        if firetouchinterest then
+                            firetouchinterest(char.HumanoidRootPart, target, 0)
+                            firetouchinterest(char.HumanoidRootPart, target, 1)
+                        end
+                        if fireproximityprompt then
+                            local prompt = target:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildWhichIsA("ProximityPrompt", true)
+                            if prompt then fireproximityprompt(prompt) end
+                        end
+                        task.wait(0.05) -- Очень быстрый цикл
                     end
                 end
             end
-        end
-        if State.ResetOnFull or State.KillAllOnFull then
-            char:BreakJoints()
-            task.wait(1)
-            return
-        end
-    end
-
-    local target = nil
-    local shortestDist = 1000
-
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        local n = obj.Name:lower()
-        if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
-            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-            if part and part:IsA("BasePart") then
-                local dist = (char.HumanoidRootPart.Position - part.Position).Magnitude
-                if dist < shortestDist then
-                    shortestDist = dist
-                    target = part
-                end
+        else
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("QovickGod") then
+                char.QovickGod:Destroy()
             end
-        end
-    end
-
-    if target then
-        -- Привязываем персонажа ПОД монету (зависание)
-        char.HumanoidRootPart.Anchored = true
-        if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = true end
-        
-        -- Смещение на 1.5 стада вниз (чтобы задеть хитбоксом)
-        char.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, -1.5, 0)
-        char.HumanoidRootPart.Velocity = Vector3.zero
-        
-        -- Активируем касание всеми частями тела
-        if firetouchinterest then
-            for _, part in pairs(char:GetChildren()) do
-                if part:IsA("BasePart") then
-                    pcall(function()
-                        firetouchinterest(part, target, 0)
-                        firetouchinterest(part, target, 1)
-                    end)
-                end
-            end
-        end
-        
-        -- Промпт E
-        if fireproximityprompt then
-            local prompt = target:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if prompt then
-                pcall(function() fireproximityprompt(prompt) end)
-            end
-        end
-        
-        -- Ждем, пока конфета не исчезнет (максимум 0.2 сек)
-        local timer = 0
-        while target.Parent and timer < 0.2 do
-            task.wait(0.05)
-            timer = timer + 0.05
-        end
-    else
-        -- Если монет нет, снимаем якорь, чтобы можно было ходить
-        if char.HumanoidRootPart.Anchored then
-            char.HumanoidRootPart.Anchored = false
-            if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
         end
     end
 end)
