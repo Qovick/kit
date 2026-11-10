@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Anchored Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (BodyPosition Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,7 +344,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Anchored AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("BodyPos AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,9 +471,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПРИВЯЗКА + ИНТЕРПОЛЯЦИЯ)
+-- АВТОФАРМ (BODY POSITION - ЗАВИСАНИЕ)
 -- ==========================================
 task.spawn(function()
+    local bp, bg
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
@@ -481,13 +482,24 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Привязываем персонажа (чтобы не падал)
-                hrp.Anchored = true
+                -- Бессмертие и отключение физики
+                hum.MaxHealth = math.huge
+                hum.Health = math.huge
                 hum.PlatformStand = true
                 
-                -- Отключаем коллизию
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = false end
+                if not bp or bp.Parent ~= hrp then
+                    if bp then bp:Destroy() end
+                    if bg then bg:Destroy() end
+                    
+                    bp = Instance.new("BodyPosition", hrp)
+                    bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bp.P = 50000
+                    bp.D = 1000
+                    
+                    bg = Instance.new("BodyGyro", hrp)
+                    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                    bg.P = 10000
+                    bg.D = 500
                 end
 
                 local bagSize = 0
@@ -531,33 +543,21 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- Ручная интерполяция (плавный полёт без падения)
-                        local startPos = hrp.Position
+                        -- 1. Уходим под карту
                         local underPos = target.Position - Vector3.new(0, 10, 0)
-                        
-                        -- 1. Летим под карту
-                        for i = 0, 1, 0.1 do
-                            hrp.CFrame = CFrame.new(startPos:Lerp(underPos, i))
-                            task.wait(0.01)
-                        end
+                        bp.Position = underPos
+                        bg.CFrame = CFrame.new(underPos)
+                        task.wait(0.1)
                         
                         -- 2. Летим к монете
-                        local upPos = target.Position
-                        startPos = hrp.Position
-                        for i = 0, 1, 0.1 do
-                            hrp.CFrame = CFrame.new(startPos:Lerp(upPos, i))
-                            task.wait(0.01)
-                        end
-                        
-                        -- 3. Висим 0.5 сек
+                        bp.Position = target.Position
+                        bg.CFrame = target.CFrame
                         task.wait(0.5)
                         
-                        -- 4. Летим обратно под карту
-                        startPos = hrp.Position
-                        for i = 0, 1, 0.1 do
-                            hrp.CFrame = CFrame.new(startPos:Lerp(underPos, i))
-                            task.wait(0.01)
-                        end
+                        -- 3. Уходим обратно под карту
+                        bp.Position = underPos
+                        bg.CFrame = CFrame.new(underPos)
+                        task.wait(0.1)
 
                         -- Сбор
                         if firetouchinterest then
@@ -568,13 +568,11 @@ task.spawn(function()
                 end
             end
         else
+            if bp then bp:Destroy(); bp = nil end
+            if bg then bg:Destroy(); bg = nil end
             local char = LocalPlayer.Character
-            if char then
-                if char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
-                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = true end
-                end
+            if char and char:FindFirstChildOfClass("Humanoid") then 
+                char.Humanoid.PlatformStand = false 
             end
         end
     end
