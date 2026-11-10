@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Roles + Gun TP fix)
+-- Qovick Hub :: Ultimate Custom UI (Halloween Farm Update)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -236,7 +236,7 @@ local State = {
     KillAura = false, KillDist = 20,
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false,
-    AutoCoins = false, AutoFarm = false, AutoPickupGun = false
+    AutoFarm = false, AutoPickupGun = false, ResetOnFull = false, KillAllOnFull = false
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
@@ -254,7 +254,7 @@ Sheriff:CreateButton("Pick Up Gun (Any Dist)", function()
         end
     end
 end)
-Sheriff:CreateToggle("Auto Pickup Gun", false, function(v) State.AutoPickupGun = v end) -- ПЕРЕНЕСЕНО СЮДА
+Sheriff:CreateToggle("Auto Pickup Gun", false, function(v) State.AutoPickupGun = v end)
 
 local Murderer = QovickUI:CreateTab("Murderer")
 Murderer:CreateToggle("Kill Aura", false, function(v) State.KillAura = v end)
@@ -265,7 +265,6 @@ Visuals:CreateToggle("Enable ESP", false, function(v) State.ESP = v end)
 Visuals:CreateToggle("Show Box", false, function(v) State.ESPBox = v end)
 Visuals:CreateToggle("Show Tracers", false, function(v) State.ESPTracer = v end)
 Visuals:CreateToggle("Outline (Chams)", false, function(v) State.ESPOutline = v end)
-Visuals:CreateToggle("Show Roles", true, function(v) State.ESPRole = v end)
 
 local Player = QovickUI:CreateTab("Player")
 Player:CreateSlider("Walk Speed", 16, 200, 16, function(v)
@@ -319,7 +318,9 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Teleport)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("AutoFarm (Coins & Candy)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
+Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
 local Troll = QovickUI:CreateTab("Troll")
 Troll:CreateToggle("Fake Headless", false, function(v)
@@ -360,7 +361,6 @@ RunService.RenderStepped:Connect(function()
             local char = p.Character
             local hrp = char.HumanoidRootPart
             
-            -- Определение роли
             local roleText = ""
             local roleColor = Colors.Text
             local hasKnife = (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (char:FindFirstChild("Knife"))
@@ -426,16 +426,54 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- АВТОФАРМ (ТЕЛЕПОРТ К МОНЕТАМ)
+-- ==========================================
+-- АВТОФАРМ И FULL BAG ЛОГИКА (Хэллоуин)
+-- ==========================================
 RunService.Heartbeat:Connect(function()
-    if not State.AutoFarm then return end
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    -- Проверка полного мешка (лимит 50 монет)
+    local bagSize = 0
+    for _, obj in pairs(char:GetChildren()) do
+        if obj.Name == "CoinBag" or obj.Name == "Bag" then
+            bagSize = obj:GetAttribute("Amount") or obj.Value or 0
+        end
+    end
+    if bagSize == 0 then
+        -- Альтернативная проверка для некоторых версий
+        for _, obj in pairs(LocalPlayer:GetChildren()) do
+            if obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then bagSize = 50 end
+        end
+    end
+
+    if bagSize >= 50 or bagSize == 50 then
+        -- Убить всех
+        if State.KillAllOnFull then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid").Health > 0 then
+                    local tool = char:FindFirstChildWhichIsA("Tool")
+                    if tool and tool:FindFirstChild("Kill") then
+                        tool.Kill:FireServer(p.Character)
+                    end
+                end
+            end
+        end
+        -- Ресет
+        if State.ResetOnFull or State.KillAllOnFull then
+            char:BreakJoints()
+            task.wait(1)
+            return
+        end
+    end
+
+    -- Сам Телепорт-Фарм
+    if not State.AutoFarm then return end
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if (obj.Name == "Coin" or obj.Name == "CoinDrop") and obj:FindFirstChild("Handle") then
+        if (obj.Name == "Coin" or obj.Name == "CoinDrop" or obj.Name == "Candy" or obj.Name == "EventCoin") and obj:FindFirstChild("Handle") then
             if (char.HumanoidRootPart.Position - obj.Handle.Position).Magnitude < 300 then
                 char.HumanoidRootPart.CFrame = obj.Handle.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.1)
+                task.wait(0.05) -- Ускоренный сбор
             end
         end
     end
