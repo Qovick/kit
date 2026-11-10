@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (All-In-One + Under-Map Farm)
+-- Qovick Hub :: Ultimate Custom UI (Fixed Fly, ESP Clean, Under-Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -275,7 +275,9 @@ Player:CreateSlider("Jump Power", 50, 300, 50, function(v)
     State.JumpPower = v
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = v end
 end)
-Player:CreateToggle("Fly", false, function(v)
+
+-- ИСПРАВЛЕННЫЙ FLY
+Player:CreateToggle("Fly [Space/Shift]", false, function(v)
     State.FlyActive = v
     local char = LocalPlayer.Character
     if not char then return end
@@ -287,13 +289,21 @@ Player:CreateToggle("Fly", false, function(v)
         RunService.RenderStepped:Connect(function()
             if not State.FlyActive or not hrp or not hrp.Parent then return end
             local move = UserInputService:GetMoveVector()
-            bv.Velocity = Camera.CFrame:VectorToWorldSpace(Vector3.new(move.X, 0, move.Z)) * 50
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then bv.Velocity = bv.Velocity + Vector3.new(0, 50, 0) end
-            bg.CFrame = Camera.CFrame
+            local cam = Camera.CFrame
+            local dir = (cam.LookVector * -move.Z + cam.RightVector * move.X).Unit
+            
+            local yDir = 0
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then yDir = 1 end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then yDir = -1 end
+            
+            bv.Velocity = (dir * 50) + Vector3.new(0, yDir * 50, 0)
+            bg.CFrame = cam
+            char.Humanoid.PlatformStand = true
         end)
     else
         if hrp:FindFirstChild("QovickFly") then hrp.QovickFly:Destroy() end
         if hrp:FindFirstChild("QovickGyro") then hrp.QovickGyro:Destroy() end
+        if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
     end
 end)
 
@@ -318,7 +328,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Under-Map)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("AutoFarm (Under & Hover)", false, function(v) State.AutoFarm = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -347,9 +357,27 @@ Settings:CreateButton("Unload Hub", function() ScreenGui:Destroy() end)
 local Drawings = {}
 local Highlights = {}
 
+-- Очистка при выходе игрока
+Players.PlayerRemoving:Connect(function(p)
+    if Drawings[p] then
+        if Drawings[p].Text then Drawings[p].Text:Remove() end
+        if Drawings[p].Box then Drawings[p].Box:Remove() end
+        if Drawings[p].Tracer then Drawings[p].Tracer:Remove() end
+        Drawings[p] = nil
+    end
+    if Highlights[p] then
+        Highlights[p]:Destroy()
+        Highlights[p] = nil
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
     if not State.ESP and not State.ESPOutline then
-        for _, d in pairs(Drawings) do d:Remove() end
+        for _, d in pairs(Drawings) do 
+            if d.Text then d.Text:Remove() end
+            if d.Box then d.Box:Remove() end
+            if d.Tracer then d.Tracer:Remove() end
+        end
         Drawings = {} 
         for _, h in pairs(Highlights) do h:Destroy() end
         Highlights = {}
@@ -427,7 +455,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ТЕЛЕПОРТ ПОД МОНЕТЫ / СКВОЗЬ СТЕНЫ)
+-- АВТОФАРМ (ПОД МОНЕТУ + ЗАВИСАНИЕ)
 -- ==========================================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
@@ -479,12 +507,26 @@ RunService.Heartbeat:Connect(function()
     end
 
     if targetCoin then
-        char.HumanoidRootPart.CFrame = CFrame.new(targetCoin.Position) 
+        -- Тепаемся ПОД монету и якорим (чтобы зависнуть)
+        char.HumanoidRootPart.CFrame = targetCoin.CFrame * CFrame.new(0, -3, 0)
+        char.HumanoidRootPart.Velocity = Vector3.zero
+        char.HumanoidRootPart.Anchored = true
+        
+        -- Вызываем прикосновение
         if firetouchinterest then
             firetouchinterest(char.HumanoidRootPart, targetCoin, 0)
             firetouchinterest(char.HumanoidRootPart, targetCoin, 1)
         end
-        task.wait(0.05)
+        
+        -- Ждем пока монета исчезнет (собирается), максимум 1 сек
+        local waitTime = 0
+        while targetCoin.Parent and waitTime < 1 do
+            task.wait(0.05)
+            waitTime = waitTime + 0.05
+        end
+        
+        -- Снимаем якорь и летим дальше
+        char.HumanoidRootPart.Anchored = false
     end
 end)
 
@@ -533,9 +575,3 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-    if State.SilentAim and closestTarget then
-        local targetPart = closestTarget:FindFirstChild(State.TargetPart) or closestTarget:FindFirstChild("HumanoidRootPart")
-        if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
-    end
-    if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
-end)
