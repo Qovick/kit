@@ -1,5 +1,4 @@
-print("[Qovick] 1. Старт")
-
+-- Qovick Hub :: Ultimate Custom UI (Fixed AutoFarm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -23,19 +22,10 @@ local Colors = {
     Green = Color3.fromRGB(60, 255, 60)
 }
 
-print("[Qovick] 2. Переменные загружены")
-
--- Ультимативное подключение (gethui -> CoreGui -> PlayerGui)
 local ParentGui = nil
 pcall(function() ParentGui = gethui() end)
-if not ParentGui then
-    pcall(function() ParentGui = game:GetService("CoreGui") end)
-end
-if not ParentGui then
-    ParentGui = LocalPlayer:WaitForChild("PlayerGui")
-end
-
-print("[Qovick] 3. Экран привязан к: " .. tostring(ParentGui))
+if not ParentGui then pcall(function() ParentGui = game:GetService("CoreGui") end) end
+if not ParentGui then ParentGui = LocalPlayer:WaitForChild("PlayerGui") end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "QovickUI_Main"
@@ -97,8 +87,6 @@ ContentArea.CanvasSize = UDim2.new(0, 0, 0, 0)
 local ContentList = Instance.new("UIListLayout", ContentArea)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
 ContentList.Padding = UDim.new(0, 8)
-
-print("[Qovick] 4. Каркас нарисован")
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.RightControl then
@@ -253,8 +241,6 @@ function QovickUI:CreateTab(name)
     return TabAPI
 end
 
-print("[Qovick] 5. Библиотека UI готова")
-
 local State = {
     SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
@@ -374,8 +360,6 @@ end)
 local Settings = QovickUI:CreateTab("Settings")
 Settings:CreateButton("Unload Hub", function() ScreenGui:Destroy() end)
 
-print("[Qovick] 6. Вкладки и кнопки созданы")
-
 -- ==========================================
 -- ЦИКЛЫ (ESP, ОБВОДКА, РОЛИ)
 -- ==========================================
@@ -479,7 +463,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПОД МОНЕТУ + ЗАВИСАНИЕ)
+-- АВТОФАРМ (УМНЫЙ)
 -- ==========================================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
@@ -513,40 +497,46 @@ RunService.Heartbeat:Connect(function()
 
     if not State.AutoFarm then return end
     
-    local targetCoin = nil
+    local target = nil
     local shortestDist = 1000
 
     for _, obj in pairs(Workspace:GetDescendants()) do
         local n = obj.Name:lower()
         if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
-            local handle = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-            if handle and handle:IsA("BasePart") then
-                local dist = (char.HumanoidRootPart.Position - handle.Position).Magnitude
+            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+            if part and part:IsA("BasePart") then
+                local dist = (char.HumanoidRootPart.Position - part.Position).Magnitude
                 if dist < shortestDist then
                     shortestDist = dist
-                    targetCoin = handle
+                    target = part
                 end
             end
         end
     end
 
-    if targetCoin then
-        char.HumanoidRootPart.CFrame = targetCoin.CFrame * CFrame.new(0, -3, 0)
-        char.HumanoidRootPart.Velocity = Vector3.zero
-        char.HumanoidRootPart.Anchored = true
+    if target then
+        -- Телепорт прямо в конфету
+        char.HumanoidRootPart.CFrame = target.CFrame
+        task.wait(0.05)
         
+        -- Прикосновение
         if firetouchinterest then
-            firetouchinterest(char.HumanoidRootPart, targetCoin, 0)
-            firetouchinterest(char.HumanoidRootPart, targetCoin, 1)
+            pcall(function()
+                firetouchinterest(char.HumanoidRootPart, target, 0)
+                firetouchinterest(char.HumanoidRootPart, target, 1)
+            end)
         end
         
-        local waitTime = 0
-        while targetCoin.Parent and waitTime < 1 do
-            task.wait(0.05)
-            waitTime = waitTime + 0.05
+        -- Если есть кнопка E (ProximityPrompt)
+        if fireproximityprompt then
+            local prompt = target:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if prompt then
+                pcall(function() fireproximityprompt(prompt) end)
+            end
         end
         
-        char.HumanoidRootPart.Anchored = false
+        -- Задержка, чтобы сервер успел удалить объект
+        task.wait(0.15)
     end
 end)
 
@@ -601,5 +591,3 @@ RunService.RenderStepped:Connect(function()
     end
     if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
 end)
-
-print("[Qovick] 7. Скрипт успешно загружен!")
