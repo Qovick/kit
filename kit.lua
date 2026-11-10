@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fixed AutoFarm)
+-- Qovick Hub :: Ultimate Custom UI (Godmode Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -292,11 +292,18 @@ PlayerTab:CreateToggle("Fly [Space/Shift]", false, function(v)
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+    
     if v then
         local bv = Instance.new("BodyVelocity", hrp); bv.Name = "QovickFly"; bv.MaxForce = Vector3.new(1,1,1)*100000; bv.Velocity = Vector3.zero
         local bg = Instance.new("BodyGyro", hrp); bg.Name = "QovickGyro"; bg.MaxTorque = Vector3.new(1,1,1)*100000; bg.P = 1000
-        RunService.RenderStepped:Connect(function()
-            if not State.FlyActive or not hrp or not hrp.Parent then return end
+        
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            if not State.FlyActive or not hrp or not hrp.Parent then
+                if connection then connection:Disconnect() end
+                return 
+            end
+            
             local move = UserInputService:GetMoveVector()
             local cam = Camera.CFrame
             local dir = (cam.LookVector * -move.Z + cam.RightVector * move.X).Unit
@@ -307,12 +314,10 @@ PlayerTab:CreateToggle("Fly [Space/Shift]", false, function(v)
             
             bv.Velocity = (dir * 50) + Vector3.new(0, yDir * 50, 0)
             bg.CFrame = cam
-            char.Humanoid.PlatformStand = true
         end)
     else
         if hrp:FindFirstChild("QovickFly") then hrp.QovickFly:Destroy() end
         if hrp:FindFirstChild("QovickGyro") then hrp.QovickGyro:Destroy() end
-        if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
     end
 end)
 
@@ -337,7 +342,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("AutoFarm (Under & Hover)", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("AutoFarm (Under & God)", false, function(v) State.AutoFarm = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -463,11 +468,17 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (УМНЫЙ)
+-- АВТОФАРМ (ПОД МОНЕТУ + БЕССМЕРТИЕ)
 -- ==========================================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    -- Убираем бессмертие, если фарм выключен
+    if not State.AutoFarm then
+        if char:FindFirstChild("QovickGod") then char.QovickGod:Destroy() end
+        return
+    end
     
     local bagSize = 0
     local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -495,8 +506,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    if not State.AutoFarm then return end
-    
     local target = nil
     local shortestDist = 1000
 
@@ -515,8 +524,15 @@ RunService.Heartbeat:Connect(function()
     end
 
     if target then
-        -- Телепорт прямо в конфету
-        char.HumanoidRootPart.CFrame = target.CFrame
+        -- Бессмертие (ForceField)
+        if not char:FindFirstChild("QovickGod") then
+            local ff = Instance.new("ForceField", char)
+            ff.Name = "QovickGod"
+            ff.Visible = false
+        end
+        
+        -- Телепорт ПОД монету (чтобы хитбокс задел её)
+        char.HumanoidRootPart.CFrame = target.CFrame * CFrame.new(0, -2, 0)
         task.wait(0.05)
         
         -- Прикосновение
@@ -535,7 +551,6 @@ RunService.Heartbeat:Connect(function()
             end
         end
         
-        -- Задержка, чтобы сервер успел удалить объект
         task.wait(0.15)
     end
 end)
