@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Smart Ghost Farm)
+-- Qovick Hub :: Ultimate Custom UI (CFrame Flight Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,7 +344,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smart AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("CFrame Flight AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,10 +471,9 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (УМНЫЙ ПРИЗРАК)
+-- АВТОФАРМ (CFRAME FLIGHT)
 -- ==========================================
 task.spawn(function()
-    local bp, bg
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
@@ -482,33 +481,14 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Бессмертие и отключение физики
+                -- Бессмертие
                 hum.MaxHealth = math.huge
                 hum.Health = math.huge
                 hum.PlatformStand = true
-                hum:ChangeState(Enum.HumanoidStateType.Physics)
                 
                 -- Отключаем коллизию
                 for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then 
-                        v.CanCollide = false 
-                        v.Massless = true
-                    end
-                end
-                
-                if not bp or bp.Parent ~= hrp then
-                    if bp then bp:Destroy() end
-                    if bg then bg:Destroy() end
-                    
-                    bp = Instance.new("BodyPosition", hrp)
-                    bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                    bp.P = 100000
-                    bp.D = 1000
-                    
-                    bg = Instance.new("BodyGyro", hrp)
-                    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                    bg.P = 10000
-                    bg.D = 500
+                    if v:IsA("BasePart") then v.CanCollide = false end
                 end
 
                 local bagSize = 0
@@ -536,58 +516,50 @@ task.spawn(function()
                     end
                 else
                     local target = nil
-                    local shortestDist = 1000
                     for _, obj in pairs(Workspace:GetDescendants()) do
                         local n = obj.Name:lower()
                         if n:find("coin") or n:find("candy") or n:find("drop") or n:find("event") then
                             local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
                             if part and part:IsA("BasePart") then
-                                local dist = (hrp.Position - part.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    target = part
-                                end
+                                target = part
+                                break
                             end
                         end
                     end
 
                     if target then
-                        -- Если нашли монету, летим к ней
-                        local underPos = target.Position - Vector3.new(0, 10, 0)
+                        -- Плавный полет к монете
+                        local startPos = hrp.Position
+                        local steps = 20
+                        for i = 1, steps do
+                            hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
+                            task.wait(0.02)
+                        end
                         
-                        -- 1. Под карту
-                        bp.Position = underPos
-                        bg.CFrame = CFrame.new(underPos)
-                        task.wait(0.1)
-                        
-                        -- 2. К монете
-                        bp.Position = target.Position
-                        bg.CFrame = target.CFrame
-                        task.wait(0.5)
-                        
-                        -- 3. Обратно под карту
-                        bp.Position = underPos
-                        bg.CFrame = CFrame.new(underPos)
-                        task.wait(0.1)
-
                         -- Сбор
                         if firetouchinterest then
                             firetouchinterest(hrp, target, 0)
                             firetouchinterest(hrp, target, 1)
                         end
+                        
+                        task.wait(0.5) -- Пауза на монете
+                        
+                        -- Уходим под карту
+                        local endPos = target.Position - Vector3.new(0, 15, 0)
+                        for i = 1, steps do
+                            hrp.CFrame = CFrame.new(target.Position:Lerp(endPos, i / steps))
+                            task.wait(0.02)
+                        end
                     else
-                        -- Если монет нет (лобби), просто зависаем на месте
-                        bp.Position = hrp.Position
-                        bg.CFrame = hrp.CFrame
+                        -- Если монет нет, просто висим в воздухе
+                        hrp.CFrame = hrp.CFrame
                     end
                 end
             end
         else
-            if bp then bp:Destroy(); bp = nil end
-            if bg then bg:Destroy(); bg = nil end
             local char = LocalPlayer.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then 
-                char.Humanoid.PlatformStand = false 
+            if char then
+                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
             end
         end
     end
