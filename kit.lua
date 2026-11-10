@@ -1,4 +1,5 @@
--- Qovick Hub :: Ultimate Custom UI (Full Release)
+print("[Qovick] 1. Старт")
+
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -22,8 +23,19 @@ local Colors = {
     Green = Color3.fromRGB(60, 255, 60)
 }
 
-local ParentGui = game:GetService("CoreGui")
+print("[Qovick] 2. Переменные загружены")
+
+-- Ультимативное подключение (gethui -> CoreGui -> PlayerGui)
+local ParentGui = nil
 pcall(function() ParentGui = gethui() end)
+if not ParentGui then
+    pcall(function() ParentGui = game:GetService("CoreGui") end)
+end
+if not ParentGui then
+    ParentGui = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+print("[Qovick] 3. Экран привязан к: " .. tostring(ParentGui))
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "QovickUI_Main"
@@ -86,6 +98,8 @@ local ContentList = Instance.new("UIListLayout", ContentArea)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
 ContentList.Padding = UDim.new(0, 8)
 
+print("[Qovick] 4. Каркас нарисован")
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.RightControl then
         ScreenGui.Enabled = not ScreenGui.Enabled
@@ -133,7 +147,12 @@ function QovickUI:CreateTab(name)
         TabBtn.TextColor3 = Colors.Bg
     end)
 
-    if #Tabs == 1 then task.defer(function() TabBtn:Activate() end) end
+    if #Tabs == 1 then
+        Page.Visible = true
+        TabBtn.BackgroundColor3 = Colors.Accent
+        TabBtn.TextColor3 = Colors.Bg
+    end
+
     local TabAPI = {}
 
     function TabAPI:CreateButton(text, callback)
@@ -233,6 +252,8 @@ function QovickUI:CreateTab(name)
     end
     return TabAPI
 end
+
+print("[Qovick] 5. Библиотека UI готова")
 
 local State = {
     SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
@@ -352,6 +373,8 @@ end)
 
 local Settings = QovickUI:CreateTab("Settings")
 Settings:CreateButton("Unload Hub", function() ScreenGui:Destroy() end)
+
+print("[Qovick] 6. Вкладки и кнопки созданы")
 
 -- ==========================================
 -- ЦИКЛЫ (ESP, ОБВОДКА, РОЛИ)
@@ -578,3 +601,5 @@ RunService.RenderStepped:Connect(function()
     end
     if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
 end)
+
+print("[Qovick] 7. Скрипт успешно загружен!")
