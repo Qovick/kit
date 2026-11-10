@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Tween Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Tween Fly Farm + 1s Pause)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПОЛЁТ СКВОЗЬ СТЕНЫ)
+-- АВТОФАРМ (ПОД МОНЕТУ + 1 СЕК ПАУЗА)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -519,11 +519,12 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- Плавный полёт (Tween) к монете
-                        local distance = (char.HumanoidRootPart.Position - target.Position).Magnitude
-                        local time = distance / (State.TweenSpeed * 2) -- Скорость полёта
+                        -- Полёт ПОД монету
+                        local targetPos = target.Position - Vector3.new(0, 3, 0)
+                        local distance = (char.HumanoidRootPart.Position - targetPos).Magnitude
+                        local time = distance / (State.TweenSpeed * 2)
                         
-                        local tween = TweenService:Create(char.HumanoidRootPart, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target.CFrame})
+                        local tween = TweenService:Create(char.HumanoidRootPart, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
                         tween:Play()
                         tween.Completed:Wait()
                         
@@ -532,7 +533,9 @@ task.spawn(function()
                             firetouchinterest(char.HumanoidRootPart, target, 0)
                             firetouchinterest(char.HumanoidRootPart, target, 1)
                         end
-                        task.wait(0.05)
+                        
+                        -- Пауза 1 секунда на сбор
+                        task.wait(1)
                     end
                 end
             end
