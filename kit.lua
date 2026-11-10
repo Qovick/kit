@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Map TP + Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Smart Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -485,29 +485,32 @@ end)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
-    local teleportedToMap = false
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
-                
-                -- Check if map is loaded
-                local map = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("Game")
-                
-                if map then
-                    if not teleportedToMap then
-                        -- Teleport to map first
-                        local base = map:FindFirstChildWhichIsA("BasePart")
-                        if base then
-                            hrp.CFrame = base.CFrame + Vector3.new(0, 5, 0)
+
+                -- Find a coin
+                local target = nil
+                local shortestDist = math.huge
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    local n = obj.Name:lower()
+                    if n:find("coin") or n:find("candy") or n:find("drop") then
+                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                        if part and part:IsA("BasePart") then
+                            local dist = (hrp.Position - part.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                target = part
+                            end
                         end
-                        teleportedToMap = true
-                        task.wait(0.5) -- Wait for map to load
                     end
-                    
-                    -- Farm logic
+                end
+
+                if target then
+                    -- Round is active, farm
                     hum.MaxHealth = math.huge
                     hum.Health = math.huge
                     hum.PlatformStand = true
@@ -535,44 +538,32 @@ task.spawn(function()
                         alignOri.Responsiveness = 200
                     end
 
-                    local target = nil
-                    local shortestDist = math.huge
-                    for _, obj in pairs(Workspace:GetDescendants()) do
-                        local n = obj.Name:lower()
-                        if n:find("coin") or n:find("candy") or n:find("drop") then
-                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                            if part and part:IsA("BasePart") then
-                                local dist = (hrp.Position - part.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    target = part
-                                end
-                            end
-                        end
-                    end
-
-                    if target then
-                        alignPos.Position = target.Position
-                        alignOri.CFrame = CFrame.new(target.Position)
+                    alignPos.Position = target.Position
+                    alignOri.CFrame = CFrame.new(target.Position)
+                    
+                    if (hrp.Position - target.Position).Magnitude < 4 then
+                        alignPos.Position = hrp.Position
+                        alignOri.CFrame = hrp.CFrame
                         
-                        if (hrp.Position - target.Position).Magnitude < 4 then
-                            alignPos.Position = hrp.Position
-                            alignOri.CFrame = hrp.CFrame
-                            
-                            if firetouchinterest then
-                                firetouchinterest(hrp, target, 0)
-                                firetouchinterest(hrp, target, 1)
-                            end
-                            task.wait(0.5)
+                        if firetouchinterest then
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
                         end
+                        task.wait(0.5)
                     end
                 else
-                    -- In lobby
-                    teleportedToMap = false
+                    -- No coins (Lobby or end of round)
+                    if alignPos then alignPos:Destroy(); alignPos = nil end
+                    if alignOri then alignOri:Destroy(); alignOri = nil end
+                    if att then att:Destroy(); att = nil end
+                    
+                    hum.PlatformStand = false
+                    for _, v in pairs(char:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide = true end
+                    end
                 end
             end
         else
-            teleportedToMap = false
             if alignPos then alignPos:Destroy(); alignPos = nil end
             if alignOri then alignOri:Destroy(); alignOri = nil end
             if att then att:Destroy(); att = nil end
