@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (BodyPosition Farm)
+-- Qovick Hub :: Ultimate Custom UI (Ghost BodyPos Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -344,7 +344,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("BodyPos AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Ghost AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (BODY POSITION - ЗАВИСАНИЕ)
+-- АВТОФАРМ (ПРИЗРАК + BODY POSITION)
 -- ==========================================
 task.spawn(function()
     local bp, bg
@@ -482,10 +482,19 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Бессмертие и отключение физики
+                -- Абсолютное бессмертие и отключение физики
                 hum.MaxHealth = math.huge
                 hum.Health = math.huge
                 hum.PlatformStand = true
+                hum:ChangeState(Enum.HumanoidStateType.Physics)
+                
+                -- Отключаем коллизию КАЖДЫЙ КАДР
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then 
+                        v.CanCollide = false 
+                        v.Massless = true
+                    end
+                end
                 
                 if not bp or bp.Parent ~= hrp then
                     if bp then bp:Destroy() end
@@ -493,7 +502,7 @@ task.spawn(function()
                     
                     bp = Instance.new("BodyPosition", hrp)
                     bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                    bp.P = 50000
+                    bp.P = 100000
                     bp.D = 1000
                     
                     bg = Instance.new("BodyGyro", hrp)
