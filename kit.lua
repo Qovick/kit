@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Smooth Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (HoneyLua Style Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -334,7 +334,7 @@ Tp:CreateButton("TP Sheriff", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smooth Fly AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("HoneyLua AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -378,7 +378,6 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 RunService.RenderStepped:Connect(function()
-    -- Noclip Logic
     if State.Noclip then
         local char = LocalPlayer.Character
         if char then
@@ -471,10 +470,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (SMOOTH FLIGHT)
+-- АВТОФАРМ (HONEYLUA STYLE)
 -- ==========================================
 task.spawn(function()
-    local bv, bg
+    local alignPos, alignOri, att
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
@@ -482,27 +481,33 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
                 
-                -- Infinite health & no collision
                 hum.MaxHealth = math.huge
                 hum.Health = math.huge
                 hum.PlatformStand = true
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = false end
                 end
-                
-                -- Cancel gravity to prevent falling
-                if not bv or bv.Parent ~= hrp then
-                    bv = Instance.new("BodyVelocity", hrp)
-                    bv.Name = "QovickFarmBV"
-                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                    bv.Velocity = Vector3.zero
+
+                if not alignPos or alignPos.Parent ~= hrp then
+                    if alignPos then alignPos:Destroy() end
+                    if alignOri then alignOri:Destroy() end
+                    if att then att:Destroy() end
                     
-                    bg = Instance.new("BodyGyro", hrp)
-                    bg.Name = "QovickFarmBG"
-                    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                    att = Instance.new("Attachment", hrp)
+                    
+                    alignPos = Instance.new("AlignPosition", hrp)
+                    alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
+                    alignPos.Attachment0 = att
+                    alignPos.MaxForce = math.huge
+                    alignPos.Responsiveness = 200
+                    
+                    alignOri = Instance.new("AlignOrientation", hrp)
+                    alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
+                    alignOri.Attachment0 = att
+                    alignOri.MaxTorque = math.huge
+                    alignOri.Responsiveness = 200
                 end
 
-                -- Find coin
                 local target = nil
                 local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -520,28 +525,25 @@ task.spawn(function()
                 end
 
                 if target then
-                    -- Fly to target
-                    local distance = (hrp.Position - target.Position).Magnitude
-                    local steps = math.max(5, math.floor(distance / 5))
-                    local startPos = hrp.Position
+                    alignPos.Position = target.Position
+                    alignOri.CFrame = CFrame.new(target.Position)
                     
-                    for i = 1, steps do
-                        hrp.CFrame = CFrame.new(startPos:Lerp(target.Position, i / steps))
-                        task.wait(0.02)
+                    if (hrp.Position - target.Position).Magnitude < 4 then
+                        alignPos.Position = hrp.Position
+                        alignOri.CFrame = hrp.CFrame
+                        
+                        if firetouchinterest then
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
+                        end
+                        task.wait(0.5)
                     end
-                    
-                    -- Collect
-                    if firetouchinterest then
-                        firetouchinterest(hrp, target, 0)
-                        firetouchinterest(hrp, target, 1)
-                    end
-                    
-                    task.wait(0.5)
                 end
             end
         else
-            if bv then bv:Destroy(); bv = nil end
-            if bg then bg:Destroy(); bg = nil end
+            if alignPos then alignPos:Destroy(); alignPos = nil end
+            if alignOri then alignOri:Destroy(); alignOri = nil end
+            if att then att:Destroy(); att = nil end
             local char = LocalPlayer.Character
             if char then
                 if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
@@ -553,9 +555,7 @@ task.spawn(function()
     end
 end)
 
--- ==========================================
 -- AUTO TP TO GUN
--- ==========================================
 task.spawn(function()
     while task.wait(0.5) do
         if State.AutoTPGun then
