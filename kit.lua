@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Under-Map Hover Farm)
+-- Qovick Hub :: Ultimate Custom UI (Ghost Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -471,7 +471,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ПОД КАРТУ -> К МОНЕТЕ -> ПОД КАРТУ)
+-- АВТОФАРМ (ПРИЗРАК + ПОЛЁТ ПОД КАРТУ)
 -- ==========================================
 task.spawn(function()
     while task.wait() do
@@ -480,7 +480,12 @@ task.spawn(function()
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
-                hum.PlatformStand = true -- Отключаем гравитацию
+                hum.PlatformStand = true 
+
+                -- Отключаем коллизию (пролетаем сквозь стены)
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
+                end
 
                 local bagSize = 0
                 local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -523,12 +528,12 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- 1. Уходим под карту (на 10 стадов вниз от монеты)
+                        -- Уходим под карту (на 10 стадов вниз)
                         local underPos = target.Position - Vector3.new(0, 10, 0)
                         hrp.CFrame = CFrame.new(underPos)
                         task.wait(0.1)
 
-                        -- 2. Летим вверх ровно к монете
+                        -- Летим вверх к монете
                         local distanceUp = (hrp.Position - target.Position).Magnitude
                         local timeUp = distanceUp / (State.TweenSpeed * 2)
                         
@@ -536,10 +541,10 @@ task.spawn(function()
                         tweenUp:Play()
                         tweenUp.Completed:Wait()
 
-                        -- 3. Висим 0.5 сек на монете
+                        -- Висим 0.5 сек на монете
                         task.wait(0.5)
 
-                        -- 4. Летим обратно под карту
+                        -- Летим обратно под карту
                         local tweenDown = TweenService:Create(hrp, TweenInfo.new(timeUp, Enum.EasingStyle.Linear), {CFrame = CFrame.new(underPos)})
                         tweenDown:Play()
                         tweenDown.Completed:Wait()
@@ -554,8 +559,12 @@ task.spawn(function()
             end
         else
             local char = LocalPlayer.Character
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                char.Humanoid.PlatformStand = false
+            if char then
+                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
+                -- Возвращаем коллизию
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = true end
+                end
             end
         end
     end
