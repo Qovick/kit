@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Smart Target Farm)
+-- Qovick Hub :: Ultimate Custom UI (Safe Aim + Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -617,14 +617,57 @@ task.spawn(function()
     end
 end)
 
--- Aimbot / Kill Aura
+-- ==========================================
+-- SILENT AIM & AUTO SHOOT (SAFE)
+-- ==========================================
+task.spawn(function()
+    while task.wait(0.05) do
+        if State.AutoShoot or State.SilentAim then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local closestTarget = nil
+                local shortestDist = State.FOVSize
+                local mousePos = UserInputService:GetMouseLocation()
+                
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local tHrp = p.Character.HumanoidRootPart
+                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
+                            local vec, onScreen = Camera:WorldToViewportPoint(tHrp.Position)
+                            if onScreen then
+                                local dist = (Vector2.new(vec.X, vec.Y) - mousePos).Magnitude
+                                if dist < shortestDist then
+                                    shortestDist = dist
+                                    closestTarget = tHrp
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                if closestTarget then
+                    local vec = Camera:WorldToViewportPoint(closestTarget.Position)
+                    if State.SilentAim then
+                        pcall(function()
+                            mousemoverel(vec.X - mousePos.X, vec.Y - mousePos.Y)
+                        end)
+                    end
+                    if State.AutoShoot then
+                        pcall(function() mouse1click() end)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- KILL AURA
 RunService.RenderStepped:Connect(function()
+    if not State.KillAura then return end
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
-    local closestTarget = nil
-    local shortestDist = State.FOVSize
-    local mousePos = UserInputService:GetMouseLocation()
     
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -632,25 +675,11 @@ RunService.RenderStepped:Connect(function()
             local tHrp = tChar.HumanoidRootPart
             local hum = tChar:FindFirstChildOfClass("Humanoid")
             if hum and hum.Health > 0 then
-                if State.KillAura then
-                    if (hrp.Position - tHrp.Position).Magnitude <= State.KillDist then
-                        local tool = char:FindFirstChildWhichIsA("Tool")
-                        if tool and tool:FindFirstChild("Kill") then tool.Kill:FireServer(tChar) end
-                    end
-                end
-                if State.SilentAim then
-                    local vec, onScreen = Camera:WorldToViewportPoint(tHrp.Position)
-                    if onScreen then
-                        local distToMouse = (Vector2.new(vec.X, vec.Y) - mousePos).Magnitude
-                        if distToMouse < shortestDist then shortestDist = distToMouse; closestTarget = tChar end
-                    end
+                if (hrp.Position - tHrp.Position).Magnitude <= State.KillDist then
+                    local tool = char:FindFirstChildWhichIsA("Tool")
+                    if tool and tool:FindFirstChild("Kill") then tool.Kill:FireServer(tChar) end
                 end
             end
         end
     end
-    if State.SilentAim and closestTarget then
-        local targetPart = closestTarget:FindFirstChild(State.TargetPart) or closestTarget:FindFirstChild("HumanoidRootPart")
-        if targetPart and Mouse.Target then pcall(function() Mouse.Target = targetPart end) end
-    end
-    if State.AutoShoot and closestTarget then pcall(function() mouse1click() end) end
 end)
