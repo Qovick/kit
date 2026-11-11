@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Perfect Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Strict Round Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -345,7 +345,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Lightning AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Strict AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -481,7 +481,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (PERFECT FLIGHT)
+-- АВТОФАРМ (БЕЗОПАСНЫЙ)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
@@ -491,66 +491,11 @@ task.spawn(function()
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
-
-                local target = nil
-                local shortestDist = math.huge
-                for _, obj in pairs(Workspace:GetDescendants()) do
-                    local n = obj.Name:lower()
-                    if n:find("coin") or n:find("candy") or n:find("drop") then
-                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                        if part and part:IsA("BasePart") then
-                            local dist = (hrp.Position - part.Position).Magnitude
-                            if dist < shortestDist then
-                                shortestDist = dist
-                                target = part
-                            end
-                        end
-                    end
-                end
-
-                if target then
-                    hum.MaxHealth = math.huge
-                    hum.Health = math.huge
-                    hum.PlatformStand = true
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = false end
-                    end
-
-                    if not alignPos or alignPos.Parent ~= hrp then
-                        if alignPos then alignPos:Destroy() end
-                        if alignOri then alignOri:Destroy() end
-                        if att then att:Destroy() end
-                        
-                        att = Instance.new("Attachment", hrp)
-                        
-                        alignPos = Instance.new("AlignPosition", hrp)
-                        alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
-                        alignPos.Attachment0 = att
-                        alignPos.MaxForce = math.huge
-                        alignPos.Responsiveness = 500
-                        
-                        alignOri = Instance.new("AlignOrientation", hrp)
-                        alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
-                        alignOri.Attachment0 = att
-                        alignOri.MaxTorque = math.huge
-                        alignOri.Responsiveness = 500
-                    end
-
-                    alignPos.Position = target.Position
-                    alignOri.CFrame = CFrame.new(target.Position)
-                    
-                    -- Уменьшено до 1.5, чтобы залетал прямо в монету
-                    if (hrp.Position - target.Position).Magnitude < 1.5 then
-                        alignPos.Position = hrp.Position
-                        alignOri.CFrame = hrp.CFrame
-                        
-                        if firetouchinterest then
-                            firetouchinterest(hrp, target, 0)
-                            firetouchinterest(hrp, target, 1)
-                        end
-                        task.wait(0.1)
-                    end
-                else
+                
+                local isLobby = Workspace:FindFirstChild("Lobby") ~= nil
+                local isDead = hum.Health <= 0
+                
+                if isLobby or isDead then
                     if alignPos then alignPos:Destroy(); alignPos = nil end
                     if alignOri then alignOri:Destroy(); alignOri = nil end
                     if att then att:Destroy(); att = nil end
@@ -558,6 +503,74 @@ task.spawn(function()
                     hum.PlatformStand = false
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = true end
+                    end
+                else
+                    local target = nil
+                    local shortestDist = math.huge
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        local n = obj.Name:lower()
+                        if n:find("coin") or n:find("candy") or n:find("drop") then
+                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                            if part and part:IsA("BasePart") then
+                                local dist = (hrp.Position - part.Position).Magnitude
+                                if dist < shortestDist then
+                                    shortestDist = dist
+                                    target = part
+                                end
+                            end
+                        end
+                    end
+
+                    if target then
+                        hum.MaxHealth = math.huge
+                        hum.Health = math.huge
+                        hum.PlatformStand = true
+                        for _, v in pairs(char:GetDescendants()) do
+                            if v:IsA("BasePart") then v.CanCollide = false end
+                        end
+
+                        if not alignPos or alignPos.Parent ~= hrp then
+                            if alignPos then alignPos:Destroy() end
+                            if alignOri then alignOri:Destroy() end
+                            if att then att:Destroy() end
+                            
+                            att = Instance.new("Attachment", hrp)
+                            
+                            alignPos = Instance.new("AlignPosition", hrp)
+                            alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
+                            alignPos.Attachment0 = att
+                            alignPos.MaxForce = math.huge
+                            alignPos.Responsiveness = 500
+                            
+                            alignOri = Instance.new("AlignOrientation", hrp)
+                            alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
+                            alignOri.Attachment0 = att
+                            alignOri.MaxTorque = math.huge
+                            alignOri.Responsiveness = 500
+                        end
+
+                        alignPos.Position = target.Position
+                        alignOri.CFrame = CFrame.new(target.Position)
+                        
+                        if (hrp.Position - target.Position).Magnitude < 1.5 then
+                            alignPos.Position = hrp.Position
+                            alignOri.CFrame = hrp.CFrame
+                            
+                            if firetouchinterest then
+                                firetouchinterest(hrp, target, 0)
+                                firetouchinterest(hrp, target, 1)
+                            end
+                            task.wait(0.1)
+                        end
+                    else
+                        if alignPos then alignPos:Destroy(); alignPos = nil end
+                        if alignOri then alignOri:Destroy(); alignOri = nil end
+                        if att then att:Destroy(); att = nil end
+                        
+                        hum.PlatformStand = false
+                        for _, v in pairs(char:GetDescendants()) do
+                            if v:IsA("BasePart") then v.CanCollide = true end
+                        end
                     end
                 end
             end
