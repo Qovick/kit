@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Lightning Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Perfect Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -481,7 +481,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (LIGHTNING FLIGHT)
+-- АВТОФАРМ (PERFECT FLIGHT)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
@@ -527,7 +527,7 @@ task.spawn(function()
                         alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
                         alignPos.Attachment0 = att
                         alignPos.MaxForce = math.huge
-                        alignPos.Responsiveness = 500 -- УВЕЛИЧЕНО ДЛЯ СКОРОСТИ
+                        alignPos.Responsiveness = 500
                         
                         alignOri = Instance.new("AlignOrientation", hrp)
                         alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
@@ -539,7 +539,8 @@ task.spawn(function()
                     alignPos.Position = target.Position
                     alignOri.CFrame = CFrame.new(target.Position)
                     
-                    if (hrp.Position - target.Position).Magnitude < 4 then
+                    -- Уменьшено до 1.5, чтобы залетал прямо в монету
+                    if (hrp.Position - target.Position).Magnitude < 1.5 then
                         alignPos.Position = hrp.Position
                         alignOri.CFrame = hrp.CFrame
                         
@@ -547,7 +548,7 @@ task.spawn(function()
                             firetouchinterest(hrp, target, 0)
                             firetouchinterest(hrp, target, 1)
                         end
-                        task.wait(0.1) -- УМЕНЬШЕНА ПАУЗА
+                        task.wait(0.1)
                     end
                 else
                     if alignPos then alignPos:Destroy(); alignPos = nil end
