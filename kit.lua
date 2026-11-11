@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Safe Aim + Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Fixed Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -345,7 +345,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smart Target Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Fixed AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -481,7 +481,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (БЕЗОПАСНЫЙ)
+-- АВТОФАРМ (ФИКС)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
@@ -522,6 +522,9 @@ task.spawn(function()
                     end
 
                     if target then
+                        -- Отключаем якорь
+                        hrp.Anchored = false
+                        
                         hum.MaxHealth = math.huge
                         hum.Health = math.huge
                         hum.PlatformStand = true
