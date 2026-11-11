@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (True Silent Aim)
+-- Qovick Hub :: Ultimate Custom UI (True FireServer Silent Aim)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -481,7 +481,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ФИКС)
+-- АВТОФАРМ (БЕЗОПАСНЫЙ)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
@@ -620,7 +620,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- TRUE SILENT AIM (MURDERER)
+-- TRUE SILENT AIM (FIRESERVER HOOK)
 -- ==========================================
 local function getMurderer()
     for _, p in pairs(Players:GetPlayers()) do
@@ -634,20 +634,35 @@ local function getMurderer()
     return nil
 end
 
-local oldIndex
 local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
 setreadonly(mt, false)
-oldIndex = mt.__index
 
-mt.__index = newcclosure(function(self, key)
-    if State.SilentAim and self == Mouse and (key == "Hit" or key == "Target") then
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if State.SilentAim and method == "FireServer" then
         local murderer = getMurderer()
         if murderer then
-            if key == "Hit" then return CFrame.new(murderer.Position) end
-            if key == "Target" then return murderer end
+            -- Check if this is a tool remote or gun remote
+            if self.Name == "Shoot" or self.Name == "Fire" or (self.Parent and (self.Parent.Name == "Gun" or self.Parent.Name == "Sheriff")) then
+                local args = {...}
+                local newArgs = {}
+                for i, v in pairs(args) do
+                    if typeof(v) == "Vector3" then
+                        newArgs[i] = murderer.Position
+                    elseif typeof(v) == "CFrame" then
+                        newArgs[i] = CFrame.new(murderer.Position)
+                    elseif typeof(v) == "Instance" and v:IsA("Model") then
+                        newArgs[i] = murderer.Parent
+                    else
+                        newArgs[i] = v
+                    end
+                end
+                return oldNamecall(self, unpack(newArgs))
+            end
         end
     end
-    return oldIndex(self, key)
+    return oldNamecall(self, ...)
 end)
 setreadonly(mt, true)
 
