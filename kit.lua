@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Smart Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Lightning Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -345,7 +345,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smooth AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Lightning AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -481,7 +481,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (SMOOTH FLIGHT)
+-- АВТОФАРМ (LIGHTNING FLIGHT)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
@@ -492,7 +492,6 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
 
-                -- Find a coin
                 local target = nil
                 local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -510,7 +509,6 @@ task.spawn(function()
                 end
 
                 if target then
-                    -- Round is active, farm
                     hum.MaxHealth = math.huge
                     hum.Health = math.huge
                     hum.PlatformStand = true
@@ -529,13 +527,13 @@ task.spawn(function()
                         alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
                         alignPos.Attachment0 = att
                         alignPos.MaxForce = math.huge
-                        alignPos.Responsiveness = 200
+                        alignPos.Responsiveness = 500 -- УВЕЛИЧЕНО ДЛЯ СКОРОСТИ
                         
                         alignOri = Instance.new("AlignOrientation", hrp)
                         alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
                         alignOri.Attachment0 = att
                         alignOri.MaxTorque = math.huge
-                        alignOri.Responsiveness = 200
+                        alignOri.Responsiveness = 500
                     end
 
                     alignPos.Position = target.Position
@@ -549,10 +547,9 @@ task.spawn(function()
                             firetouchinterest(hrp, target, 0)
                             firetouchinterest(hrp, target, 1)
                         end
-                        task.wait(0.5)
+                        task.wait(0.1) -- УМЕНЬШЕНА ПАУЗА
                     end
                 else
-                    -- No coins (Lobby or end of round)
                     if alignPos then alignPos:Destroy(); alignPos = nil end
                     if alignOri then alignOri:Destroy(); alignOri = nil end
                     if att then att:Destroy(); att = nil end
