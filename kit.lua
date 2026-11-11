@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fling Added)
+-- Qovick Hub :: Ultimate Custom UI (Infinite Fling)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -322,7 +322,7 @@ local State = {
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false, Noclip = false,
     AutoFarm = false, TweenSpeed = 50, ResetOnFull = false, KillAllOnFull = false,
-    AutoTPGun = false
+    AutoTPGun = false, FlingActive = false
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
@@ -461,31 +461,31 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 Troll:CreateToggle("Fling Player", false, function(v)
+    State.FlingActive = v
     if v and flingTarget and flingTarget ~= "None" then
-        local target = Players:FindFirstChild(flingTarget)
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            local targetHrp = target.Character.HumanoidRootPart
-            local myHrp = LocalPlayer.Character.HumanoidRootPart
-            
-            -- Teleport to target
-            myHrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 5)
-            
-            -- Shake and launch
-            local bv = Instance.new("BodyVelocity", targetHrp)
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(math.random(-10000, 10000), 10000, math.random(-10000, 10000))
-            
-            task.spawn(function()
-                for i = 1, 50 do
-                    if not targetHrp or not targetHrp.Parent then break end
-                    myHrp.CFrame = targetHrp.CFrame + Vector3.new(math.random(-5,5), math.random(-5,5), math.random(-5,5))
-                    task.wait(0.01)
+        task.spawn(function()
+            while State.FlingActive do
+                local target = Players:FindFirstChild(flingTarget)
+                local myChar = LocalPlayer.Character
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                    local tHrp = target.Character.HumanoidRootPart
+                    local myHrp = myChar.HumanoidRootPart
+                    
+                    -- Teleport near target
+                    myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 0, 5)
+                    task.wait(0.05)
+                    
+                    -- Launch target
+                    tHrp.Anchored = false
+                    local bv = Instance.new("BodyVelocity", tHrp)
+                    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                    bv.Velocity = Vector3.new(math.random(-10000, 10000), 10000, math.random(-10000, 10000))
+                    task.wait(0.5)
+                    bv:Destroy()
                 end
-            end)
-            
-            task.wait(1.5)
-            bv:Destroy()
-        end
+                task.wait(0.5)
+            end
+        end)
     end
 end)
 
