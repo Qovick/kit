@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Infinite Fling)
+-- Qovick Hub :: Ultimate Custom UI (Restored AutoFarm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Stable AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Restored AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -471,11 +471,9 @@ Troll:CreateToggle("Fling Player", false, function(v)
                     local tHrp = target.Character.HumanoidRootPart
                     local myHrp = myChar.HumanoidRootPart
                     
-                    -- Teleport near target
                     myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 0, 5)
                     task.wait(0.05)
                     
-                    -- Launch target
                     tHrp.Anchored = false
                     local bv = Instance.new("BodyVelocity", tHrp)
                     bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
@@ -604,81 +602,89 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (BODY POSITION)
+-- ВОССТАНОВЛЕННЫЙ АВТОФАРМ
 -- ==========================================
 task.spawn(function()
-    local bp
+    local alignPos, alignOri, att
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                 local hrp = char.HumanoidRootPart
                 local hum = char.Humanoid
-                
-                local isLobby = Workspace:FindFirstChild("Lobby") ~= nil
-                local isDead = hum.Health <= 0
-                
-                if isLobby or isDead then
-                    if bp then bp:Destroy(); bp = nil end
+
+                local target = nil
+                local shortestDist = math.huge
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    local n = obj.Name:lower()
+                    if n:find("coin") or n:find("candy") or n:find("drop") then
+                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                        if part and part:IsA("BasePart") then
+                            local dist = (hrp.Position - part.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                target = part
+                            end
+                        end
+                    end
+                end
+
+                if target then
+                    hum.MaxHealth = math.huge
+                    hum.Health = math.huge
+                    hum.PlatformStand = true
+                    for _, v in pairs(char:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide = false end
+                    end
+
+                    if not alignPos or alignPos.Parent ~= hrp then
+                        if alignPos then alignPos:Destroy() end
+                        if alignOri then alignOri:Destroy() end
+                        if att then att:Destroy() end
+                        
+                        att = Instance.new("Attachment", hrp)
+                        
+                        alignPos = Instance.new("AlignPosition", hrp)
+                        alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
+                        alignPos.Attachment0 = att
+                        alignPos.MaxForce = math.huge
+                        alignPos.Responsiveness = 500
+                        
+                        alignOri = Instance.new("AlignOrientation", hrp)
+                        alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
+                        alignOri.Attachment0 = att
+                        alignOri.MaxTorque = math.huge
+                        alignOri.Responsiveness = 500
+                    end
+
+                    alignPos.Position = target.Position
+                    alignOri.CFrame = CFrame.new(target.Position)
+                    
+                    if (hrp.Position - target.Position).Magnitude < 1.5 then
+                        alignPos.Position = hrp.Position
+                        alignOri.CFrame = hrp.CFrame
+                        
+                        if firetouchinterest then
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
+                        end
+                        task.wait(0.1)
+                    end
+                else
+                    if alignPos then alignPos:Destroy(); alignPos = nil end
+                    if alignOri then alignOri:Destroy(); alignOri = nil end
+                    if att then att:Destroy(); att = nil end
+                    
                     hum.PlatformStand = false
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = true end
                     end
-                else
-                    local target = nil
-                    local shortestDist = math.huge
-                    for _, obj in pairs(Workspace:GetDescendants()) do
-                        local n = obj.Name:lower()
-                        if n:find("coin") or n:find("candy") or n:find("drop") then
-                            local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                            if part and part:IsA("BasePart") then
-                                local dist = (hrp.Position - part.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    target = part
-                                end
-                            end
-                        end
-                    end
-
-                    if target then
-                        hrp.Anchored = false
-                        hum.MaxHealth = math.huge
-                        hum.Health = math.huge
-                        hum.PlatformStand = true
-                        for _, v in pairs(char:GetDescendants()) do
-                            if v:IsA("BasePart") then v.CanCollide = false end
-                        end
-
-                        if not bp or bp.Parent ~= hrp then
-                            if bp then bp:Destroy() end
-                            bp = Instance.new("BodyPosition", hrp)
-                            bp.Name = "QovickFarmBP"
-                            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                            bp.P = 50000
-                            bp.D = 1000
-                        end
-
-                        bp.Position = target.Position
-                        
-                        if (hrp.Position - target.Position).Magnitude < 2 then
-                            if firetouchinterest then
-                                firetouchinterest(hrp, target, 0)
-                                firetouchinterest(hrp, target, 1)
-                            end
-                            task.wait(0.1)
-                        end
-                    else
-                        if bp then bp:Destroy(); bp = nil end
-                        hum.PlatformStand = false
-                        for _, v in pairs(char:GetDescendants()) do
-                            if v:IsA("BasePart") then v.CanCollide = true end
-                        end
-                    end
                 end
             end
         else
-            if bp then bp:Destroy(); bp = nil end
+            if alignPos then alignPos:Destroy(); alignPos = nil end
+            if alignOri then alignOri:Destroy(); alignOri = nil end
+            if att then att:Destroy(); att = nil end
             local char = LocalPlayer.Character
             if char then
                 if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
