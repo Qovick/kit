@@ -464,10 +464,25 @@ Troll:CreateToggle("Fling Player", false, function(v)
     if v and flingTarget and flingTarget ~= "None" then
         local target = Players:FindFirstChild(flingTarget)
         if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = target.Character.HumanoidRootPart
-            local bv = Instance.new("BodyAngularVelocity", hrp)
-            bv.AngularVelocity = Vector3.new(9999, 9999, 9999)
-            bv.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            local targetHrp = target.Character.HumanoidRootPart
+            local myHrp = LocalPlayer.Character.HumanoidRootPart
+            
+            -- Teleport to target
+            myHrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 5)
+            
+            -- Shake and launch
+            local bv = Instance.new("BodyVelocity", targetHrp)
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.new(math.random(-10000, 10000), 10000, math.random(-10000, 10000))
+            
+            task.spawn(function()
+                for i = 1, 50 do
+                    if not targetHrp or not targetHrp.Parent then break end
+                    myHrp.CFrame = targetHrp.CFrame + Vector3.new(math.random(-5,5), math.random(-5,5), math.random(-5,5))
+                    task.wait(0.01)
+                end
+            end)
+            
             task.wait(1.5)
             bv:Destroy()
         end
