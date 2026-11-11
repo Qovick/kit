@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fixed Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (True Silent Aim)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -251,7 +251,7 @@ local State = {
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
-Sheriff:CreateToggle("Silent Aim", false, function(v) State.SilentAim = v end)
+Sheriff:CreateToggle("Silent Aim (Murderer)", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
@@ -522,7 +522,6 @@ task.spawn(function()
                     end
 
                     if target then
-                        -- Отключаем якорь
                         hrp.Anchored = false
                         
                         hum.MaxHealth = math.huge
@@ -621,44 +620,46 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- SILENT AIM & AUTO SHOOT (SAFE)
+-- TRUE SILENT AIM (MURDERER)
 -- ==========================================
+local function getMurderer()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hasKnife = (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (p.Character:FindFirstChild("Knife"))
+            if hasKnife and p.Character:FindFirstChild("HumanoidRootPart") then
+                return p.Character.HumanoidRootPart
+            end
+        end
+    end
+    return nil
+end
+
+local oldIndex
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+oldIndex = mt.__index
+
+mt.__index = newcclosure(function(self, key)
+    if State.SilentAim and self == Mouse and (key == "Hit" or key == "Target") then
+        local murderer = getMurderer()
+        if murderer then
+            if key == "Hit" then return CFrame.new(murderer.Position) end
+            if key == "Target" then return murderer end
+        end
+    end
+    return oldIndex(self, key)
+end)
+setreadonly(mt, true)
+
+-- AUTO SHOOT
 task.spawn(function()
     while task.wait(0.05) do
-        if State.AutoShoot or State.SilentAim then
+        if State.AutoShoot then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local closestTarget = nil
-                local shortestDist = State.FOVSize
-                local mousePos = UserInputService:GetMouseLocation()
-                
-                for _, p in pairs(Players:GetPlayers()) do
-                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local tHrp = p.Character.HumanoidRootPart
-                        local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                        if hum and hum.Health > 0 then
-                            local vec, onScreen = Camera:WorldToViewportPoint(tHrp.Position)
-                            if onScreen then
-                                local dist = (Vector2.new(vec.X, vec.Y) - mousePos).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    closestTarget = tHrp
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                if closestTarget then
-                    local vec = Camera:WorldToViewportPoint(closestTarget.Position)
-                    if State.SilentAim then
-                        pcall(function()
-                            mousemoverel(vec.X - mousePos.X, vec.Y - mousePos.Y)
-                        end)
-                    end
-                    if State.AutoShoot then
-                        pcall(function() mouse1click() end)
-                    end
+                local murderer = getMurderer()
+                if murderer then
+                    pcall(function() mouse1click() end)
                 end
             end
         end
