@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (True FireServer Silent Aim)
+-- Qovick Hub :: Ultimate Custom UI (Fling Added)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -238,6 +238,81 @@ function QovickUI:CreateTab(name)
             end
         end)
     end
+
+    function TabAPI:CreateDropdown(text, options, default, callback)
+        local Holder = Instance.new("Frame", Page)
+        Holder.Size = UDim2.new(1, 0, 0, 40)
+        Holder.BackgroundColor3 = Colors.Panel
+        Instance.new("UICorner", Holder).CornerRadius = UDim.new(0, 6)
+
+        local Label = Instance.new("TextLabel", Holder)
+        Label.Size = UDim2.new(0.5, 0, 1, 0)
+        Label.Position = UDim2.new(0, 15, 0, 0)
+        Label.BackgroundTransparency = 1
+        Label.Text = text
+        Label.TextColor3 = Colors.Text
+        Label.Font = Enum.Font.Gotham
+        Label.TextSize = 14
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+
+        local DropBtn = Instance.new("TextButton", Holder)
+        DropBtn.Size = UDim2.new(0.4, 0, 0, 25)
+        DropBtn.Position = UDim2.new(0.55, 0, 0.5, -12.5)
+        DropBtn.BackgroundColor3 = Colors.Bg
+        DropBtn.TextColor3 = Colors.Text
+        DropBtn.Font = Enum.Font.GothamSemibold
+        DropBtn.TextSize = 12
+        DropBtn.Text = default or "None"
+        DropBtn.ZIndex = 2
+        Instance.new("UICorner", DropBtn).CornerRadius = UDim.new(0, 4)
+
+        local ListFrame = Instance.new("ScrollingFrame", Holder)
+        ListFrame.Size = UDim2.new(0.4, 0, 0, 100)
+        ListFrame.Position = UDim2.new(0.55, 0, 1, 5)
+        ListFrame.BackgroundColor3 = Colors.Bg
+        ListFrame.Visible = false
+        ListFrame.ZIndex = 10
+        ListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        ListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        ListFrame.ScrollBarThickness = 2
+        Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 4)
+        Instance.new("UIStroke", ListFrame).Color = Colors.Accent
+        
+        local ListLayout = Instance.new("UIListLayout", ListFrame)
+        ListLayout.Padding = UDim.new(0, 2)
+        
+        local function updateList(newOptions)
+            for _, child in pairs(ListFrame:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+            for _, opt in pairs(newOptions) do
+                local optBtn = Instance.new("TextButton", ListFrame)
+                optBtn.Size = UDim2.new(1, 0, 0, 20)
+                optBtn.BackgroundColor3 = Colors.Panel
+                optBtn.TextColor3 = Colors.Text
+                optBtn.Text = tostring(opt)
+                optBtn.Font = Enum.Font.Gotham
+                optBtn.TextSize = 12
+                optBtn.ZIndex = 10
+                optBtn.MouseButton1Click:Connect(function()
+                    DropBtn.Text = tostring(opt)
+                    ListFrame.Visible = false
+                    if callback then callback(opt) end
+                end)
+            end
+        end
+        
+        updateList(options)
+        
+        DropBtn.MouseButton1Click:Connect(function()
+            ListFrame.Visible = not ListFrame.Visible
+        end)
+
+        return {
+            UpdateOptions = updateList
+        }
+    end
+
     return TabAPI
 end
 
@@ -345,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Fixed AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Stable AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -362,6 +437,39 @@ Troll:CreateToggle("Fake Headless", false, function(v)
             end
         else
             if head:FindFirstChildOfClass("SpecialMesh") then head:FindFirstChildOfClass("SpecialMesh"):Destroy() end
+        end
+    end
+end)
+
+local function getPlayerNames()
+    local names = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then table.insert(names, p.Name) end
+    end
+    return names
+end
+
+local flingTarget = nil
+local TrollDropdown = Troll:CreateDropdown("Fling Target", getPlayerNames(), "None", function(val)
+    flingTarget = val
+end)
+
+Players.PlayerAdded:Connect(function() TrollDropdown.UpdateOptions(getPlayerNames()) end)
+Players.PlayerRemoving:Connect(function(p) 
+    TrollDropdown.UpdateOptions(getPlayerNames())
+    if flingTarget == p.Name then flingTarget = nil end
+end)
+
+Troll:CreateToggle("Fling Player", false, function(v)
+    if v and flingTarget and flingTarget ~= "None" then
+        local target = Players:FindFirstChild(flingTarget)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = target.Character.HumanoidRootPart
+            local bv = Instance.new("BodyAngularVelocity", hrp)
+            bv.AngularVelocity = Vector3.new(9999, 9999, 9999)
+            bv.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            task.wait(1.5)
+            bv:Destroy()
         end
     end
 end)
@@ -481,10 +589,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (БЕЗОПАСНЫЙ)
+-- АВТОФАРМ (BODY POSITION)
 -- ==========================================
 task.spawn(function()
-    local alignPos, alignOri, att
+    local bp
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
@@ -496,10 +604,7 @@ task.spawn(function()
                 local isDead = hum.Health <= 0
                 
                 if isLobby or isDead then
-                    if alignPos then alignPos:Destroy(); alignPos = nil end
-                    if alignOri then alignOri:Destroy(); alignOri = nil end
-                    if att then att:Destroy(); att = nil end
-                    
+                    if bp then bp:Destroy(); bp = nil end
                     hum.PlatformStand = false
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = true end
@@ -523,7 +628,6 @@ task.spawn(function()
 
                     if target then
                         hrp.Anchored = false
-                        
                         hum.MaxHealth = math.huge
                         hum.Health = math.huge
                         hum.PlatformStand = true
@@ -531,33 +635,18 @@ task.spawn(function()
                             if v:IsA("BasePart") then v.CanCollide = false end
                         end
 
-                        if not alignPos or alignPos.Parent ~= hrp then
-                            if alignPos then alignPos:Destroy() end
-                            if alignOri then alignOri:Destroy() end
-                            if att then att:Destroy() end
-                            
-                            att = Instance.new("Attachment", hrp)
-                            
-                            alignPos = Instance.new("AlignPosition", hrp)
-                            alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
-                            alignPos.Attachment0 = att
-                            alignPos.MaxForce = math.huge
-                            alignPos.Responsiveness = 500
-                            
-                            alignOri = Instance.new("AlignOrientation", hrp)
-                            alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
-                            alignOri.Attachment0 = att
-                            alignOri.MaxTorque = math.huge
-                            alignOri.Responsiveness = 500
+                        if not bp or bp.Parent ~= hrp then
+                            if bp then bp:Destroy() end
+                            bp = Instance.new("BodyPosition", hrp)
+                            bp.Name = "QovickFarmBP"
+                            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                            bp.P = 50000
+                            bp.D = 1000
                         end
 
-                        alignPos.Position = target.Position
-                        alignOri.CFrame = CFrame.new(target.Position)
+                        bp.Position = target.Position
                         
-                        if (hrp.Position - target.Position).Magnitude < 1.5 then
-                            alignPos.Position = hrp.Position
-                            alignOri.CFrame = hrp.CFrame
-                            
+                        if (hrp.Position - target.Position).Magnitude < 2 then
                             if firetouchinterest then
                                 firetouchinterest(hrp, target, 0)
                                 firetouchinterest(hrp, target, 1)
@@ -565,10 +654,7 @@ task.spawn(function()
                             task.wait(0.1)
                         end
                     else
-                        if alignPos then alignPos:Destroy(); alignPos = nil end
-                        if alignOri then alignOri:Destroy(); alignOri = nil end
-                        if att then att:Destroy(); att = nil end
-                        
+                        if bp then bp:Destroy(); bp = nil end
                         hum.PlatformStand = false
                         for _, v in pairs(char:GetDescendants()) do
                             if v:IsA("BasePart") then v.CanCollide = true end
@@ -577,9 +663,7 @@ task.spawn(function()
                 end
             end
         else
-            if alignPos then alignPos:Destroy(); alignPos = nil end
-            if alignOri then alignOri:Destroy(); alignOri = nil end
-            if att then att:Destroy(); att = nil end
+            if bp then bp:Destroy(); bp = nil end
             local char = LocalPlayer.Character
             if char then
                 if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
@@ -620,7 +704,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- TRUE SILENT AIM (FIRESERVER HOOK)
+-- TRUE SILENT AIM (SAFE HOOK)
 -- ==========================================
 local function getMurderer()
     for _, p in pairs(Players:GetPlayers()) do
@@ -634,37 +718,37 @@ local function getMurderer()
     return nil
 end
 
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if State.SilentAim and method == "FireServer" then
-        local murderer = getMurderer()
-        if murderer then
-            -- Check if this is a tool remote or gun remote
-            if self.Name == "Shoot" or self.Name == "Fire" or (self.Parent and (self.Parent.Name == "Gun" or self.Parent.Name == "Sheriff")) then
-                local args = {...}
-                local newArgs = {}
-                for i, v in pairs(args) do
-                    if typeof(v) == "Vector3" then
-                        newArgs[i] = murderer.Position
-                    elseif typeof(v) == "CFrame" then
-                        newArgs[i] = CFrame.new(murderer.Position)
-                    elseif typeof(v) == "Instance" and v:IsA("Model") then
-                        newArgs[i] = murderer.Parent
-                    else
-                        newArgs[i] = v
+pcall(function()
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if State.SilentAim and method == "FireServer" then
+            local murderer = getMurderer()
+            if murderer then
+                if self.Name == "Shoot" or self.Name == "Fire" or (self.Parent and (self.Parent.Name == "Gun" or self.Parent.Name == "Sheriff")) then
+                    local args = {...}
+                    local newArgs = {}
+                    for i, v in pairs(args) do
+                        if typeof(v) == "Vector3" then
+                            newArgs[i] = murderer.Position
+                        elseif typeof(v) == "CFrame" then
+                            newArgs[i] = CFrame.new(murderer.Position)
+                        elseif typeof(v) == "Instance" and v:IsA("Model") then
+                            newArgs[i] = murderer.Parent
+                        else
+                            newArgs[i] = v
+                        end
                     end
+                    return oldNamecall(self, unpack(newArgs))
                 end
-                return oldNamecall(self, unpack(newArgs))
             end
         end
-    end
-    return oldNamecall(self, ...)
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt, true)
 end)
-setreadonly(mt, true)
 
 -- AUTO SHOOT
 task.spawn(function()
