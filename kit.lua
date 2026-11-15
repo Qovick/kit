@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fast Farm + Fixed Silent Aim)
+-- Qovick Hub :: Ultimate Custom UI (New AutoFarm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -326,7 +326,7 @@ local State = {
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
-Sheriff:CreateToggle("Silent Aim (Fixed)", false, function(v) State.SilentAim = v end)
+Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
@@ -420,8 +420,8 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Fast AutoFarm", false, function(v) State.AutoFarm = v end)
-Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
+Farm:CreateToggle("Custom AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -695,47 +695,128 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- БЫСТРЫЙ АВТОФАРМ (CFRAME TELEPORT)
+-- АВТОФАРМ (CUSTOM SCRIPT)
 -- ==========================================
-task.spawn(function()
-    while task.wait() do
-        if State.AutoFarm then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
-                local hrp = char.HumanoidRootPart
-                local hum = char.Humanoid
-                
-                -- Ищем ближайшую монету
-                local target = nil
-                local shortestDist = math.huge
-                for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then
-                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                        if part and not Players:GetPlayerFromCharacter(part.Parent) then
-                            local dist = (hrp.Position - part.Position).Magnitude
-                            if dist < shortestDist then
-                                shortestDist = dist
-                                target = part
-                            end
-                        end
-                    end
-                end
+local coinCache = {}
+local lastScan = 0
+local currentTween = nil
 
-                if target then
-                    -- Телепорт прямо в монету
-                    hrp.CFrame = target.CFrame
-                    
-                    -- Сбор
-                    if firetouchinterest then
-                        firetouchinterest(hrp, target, 0)
-                        firetouchinterest(hrp, target, 1)
-                    end
-                    
-                    -- Скорость фарма (чем больше, тем быстрее)
-                    task.wait((101 - State.TweenSpeed) / 200)
-                end
+local function forceNoClip()
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end
+
+local function findCoins()
+    local coins = {}
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsA("Terrain") and obj.CanCollide == false then
+            local n = obj.Name:lower()
+            if n:find("coin") or n:find("money") or n:find("gem") or n:find("gold") or n:find("cash") or n:find("collect") or n:find("loot") or n:find("candy") then
+                table.insert(coins, obj)
             end
         end
+    end
+    return coins
+end
+
+local function collectCoin(coin)
+    if not coin or not coin.Parent then return false end
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    root.CFrame = CFrame.new(coin.Position + Vector3.new(0, 2, 0))
+    task.wait(0.05)
+    if firetouchinterest then
+        firetouchinterest(root, coin, 0)
+        firetouchinterest(root, coin, 1)
+    end
+    local cd = coin:FindFirstChildOfClass("ClickDetector")
+    if cd and fireclickdetector then fireclickdetector(cd) end
+    local prompt = coin:FindFirstChildOfClass("ProximityPrompt") or (coin.Parent and coin.Parent:FindFirstChildOfClass("ProximityPrompt"))
+    if prompt and fireproximityprompt then fireproximityprompt(prompt) end
+    task.wait(0.1)
+    return not coin.Parent
+end
+
+local function moveToPosition(targetPos)
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    if currentTween then currentTween:Cancel(); currentTween = nil end
+    local dist = (root.Position - targetPos).Magnitude
+    if dist < 0.5 then return true end
+
+    local speed = State.TweenSpeed or 30
+    local duration = math.clamp(dist / speed, 0.2, 3.0)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    currentTween = tween
+    local finished = false
+    tween.Completed:Connect(function() finished = true; currentTween = nil end)
+    tween:Play()
+    local startTime = tick()
+    while not finished do
+        if not root.Parent then if currentTween then currentTween:Cancel() end return false end
+        forceNoClip()
+        if tick() - startTime > 5 then if currentTween then currentTween:Cancel() end break end
+        task.wait(0.1)
+    end
+    return true
+end
+
+task.spawn(function()
+    while true do
+        if State.AutoFarm then
+            if tick() - lastScan > 0.8 then coinCache = findCoins(); lastScan = tick() end
+        else coinCache = {}; lastScan = 0 end
+        task.wait(0.5)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if State.AutoFarm then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                forceNoClip()
+                if root.Position.Y < -10 then root.CFrame = CFrame.new(root.Position.X, 5, root.Position.Z) end
+                if #coinCache > 0 then
+                    local nearest = coinCache[1]
+                    local minDist = (root.Position - nearest.Position).Magnitude
+                    for _, coin in pairs(coinCache) do
+                        local d = (root.Position - coin.Position).Magnitude
+                        if d < minDist then nearest = coin; minDist = d end
+                    end
+                    if nearest and nearest.Parent then
+                        local safePos = nearest.Position + Vector3.new(0, 3 + math.random() * 2, 0)
+                        moveToPosition(safePos)
+                        collectCoin(nearest)
+                        for i, c in pairs(coinCache) do if c == nearest then table.remove(coinCache, i); break end end
+                        local delay = 0.3 * (0.8 + math.random() * 0.4)
+                        task.wait(delay)
+                    end
+                else
+                    root.CFrame = root.CFrame + Vector3.new(math.random(-3,3), 0, math.random(-3,3))
+                    task.wait(1.5 + math.random())
+                end
+            else
+                task.wait(1)
+            end
+        else
+            local char = LocalPlayer.Character
+            if char then for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = true end end end
+            task.wait(0.5)
+        end
+        task.wait(0.1)
     end
 end)
 
