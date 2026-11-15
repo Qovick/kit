@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (No Auto Click)
+-- Qovick Hub :: Ultimate Custom UI (Under-Floor Touch)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -319,7 +319,7 @@ function QovickUI:CreateTab(name)
 end
 
 local State = {
-    SilentAim = false, FOVSize = 120, TargetPart = "Head",
+    SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false, Noclip = false,
@@ -329,6 +329,7 @@ local State = {
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
 Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) State.SilentAim = v end)
+Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
 
@@ -421,7 +422,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Unanchored Touch Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Under-Floor Touch Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -576,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (NO CLICK)
+-- АВТОФАРМ (UNDER-FLOOR TOUCH)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -620,10 +621,13 @@ task.spawn(function()
                     hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.05)
                     
+                    -- Остаемся под полом, но поднимаемся чуть выше, чтобы задеть монету
+                    local nearPos = Vector3.new(target.Position.X, target.Position.Y - 3, target.Position.Z)
                     hrp.Anchored = false
-                    hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
+                    hrp.CFrame = CFrame.new(nearPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.1)
                     
+                    -- Собираем (все способы)
                     for _, part in pairs(char:GetDescendants()) do
                         if part:IsA("BasePart") then
                             pcall(function()
