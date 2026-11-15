@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Direct Anchored Under-Map Fly)
+-- Qovick Hub :: Ultimate Custom UI (Lying Teleport Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,8 +420,8 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Direct Anchored Farm", false, function(v) State.AutoFarm = v end)
-Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
+Farm:CreateToggle("Lying Teleport Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -695,24 +695,8 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (DIRECT ANCHORED UNDER-MAP)
+-- АВТОФАРМ (LYING TELEPORT)
 -- ==========================================
-local UNDER_Y = -50
-local currentTween = nil
-
-local function findCoins()
-    local coins = {}
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then
-            -- Проверка, что это не часть игрока
-            if not Players:GetPlayerFromCharacter(obj.Parent) then
-                table.insert(coins, obj)
-            end
-        end
-    end
-    return coins
-end
-
 task.spawn(function()
     while true do
         if State.AutoFarm then
@@ -721,51 +705,31 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 
-                -- Жесткий якорь, чтобы не упасть
                 hrp.Anchored = true
                 if hum then hum.PlatformStand = true end
                 
-                -- Ищем ближайшую монету
                 local target = nil
                 local shortestDist = math.huge
-                local coins = findCoins()
-                for _, coin in pairs(coins) do
-                    local dist = (hrp.Position - coin.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        target = coin
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and (obj.Name:lower():find("coin") or obj.Name:lower():find("candy")) then
+                        if not Players:GetPlayerFromCharacter(obj.Parent) then
+                            local dist = (hrp.Position - obj.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                target = obj
+                            end
+                        end
                     end
                 end
                 
                 if target then
-                    -- 1. Летим к координатам монеты под полом (лежа)
-                    local startPos = hrp.Position
-                    local endPos = Vector3.new(target.Position.X, UNDER_Y, target.Position.Z)
-                    local dist = (startPos - endPos).Magnitude
-                    local time = dist / (State.TweenSpeed or 50)
-                    
-                    local startTime = tick()
-                    while tick() - startTime < time and State.AutoFarm do
-                        local alpha = (tick() - startTime) / time
-                        if alpha > 1 then alpha = 1 end
-                        local currentPos = startPos:Lerp(endPos, alpha)
-                        hrp.CFrame = CFrame.new(currentPos) * CFrame.Angles(math.rad(90), 0, 0)
-                        task.wait(0.02)
-                    end
-                    
-                    -- 2. Выныриваем наверх к монете
                     hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.1)
                     
-                    -- 3. Собираем
                     if firetouchinterest then
                         firetouchinterest(hrp, target, 0)
                         firetouchinterest(hrp, target, 1)
                     end
-                    task.wait(0.1)
-                    
-                    -- 4. Уходим обратно под пол
-                    hrp.CFrame = CFrame.new(target.Position.X, UNDER_Y, target.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.1)
                 else
                     task.wait(0.5)
