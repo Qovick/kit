@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Hard-Anchored Under-Map Farm)
+-- Qovick Hub :: Ultimate Custom UI (Invisible Platform Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Hard-Anchored Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Invisible Platform Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,11 +695,12 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (HARD ANCHORED UNDER-MAP)
+-- АВТОФАРМ (INVISIBLE PLATFORM)
 -- ==========================================
+local platform = nil
+local weld = nil
 local coinCache = {}
 local lastScan = 0
-local currentTween = nil
 local UNDER_Y = -50
 
 local function forceNoClip()
@@ -724,121 +725,109 @@ local function findCoins()
     return coins
 end
 
-local function moveToPositionUnderMap(targetPos)
+local function startFarm()
     local char = LocalPlayer.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-
-    local startPos = root.Position
-    local endPos = Vector3.new(targetPos.X, UNDER_Y, targetPos.Z)
-    local dist = (startPos - endPos).Magnitude
-    local speed = State.TweenSpeed or 30
-    local time = math.clamp(dist / speed, 0.1, 1.5)
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
     
-    local startTime = tick()
-    while tick() - startTime < time do
-        if not State.AutoFarm or not root.Parent then return false end
-        local alpha = (tick() - startTime) / time
-        if alpha > 1 then alpha = 1 end
-        local currentPos = startPos:Lerp(endPos, alpha)
-        
-        -- Жестко якорим и двигаем
-        root.Anchored = true
-        root.CFrame = CFrame.new(currentPos) * CFrame.Angles(math.rad(90), 0, 0)
-        task.wait(0.02)
-    end
-    return true
+    platform = Instance.new("Part")
+    platform.Name = "QovickPlatform"
+    platform.Size = Vector3.new(5, 5, 5)
+    platform.Transparency = 1
+    platform.CanCollide = false
+    platform.Anchored = true
+    platform.Parent = Workspace
+    
+    platform.CFrame = CFrame.new(hrp.Position.X, UNDER_Y, hrp.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
+    
+    weld = Instance.new("WeldConstraint")
+    weld.Part0 = platform
+    weld.Part1 = hrp
+    weld.Parent = platform
+    
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.PlatformStand = true end
+    
+    forceNoClip()
 end
 
-local function collectCoin(coin)
-    if not coin or not coin.Parent then return false end
+local function stopFarm()
+    if platform then platform:Destroy(); platform = nil end
+    if weld then weld:Destroy(); weld = nil end
     local char = LocalPlayer.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-
-    -- Выныриваем к монете (лежа)
-    root.Anchored = true
-    root.CFrame = CFrame.new(coin.Position + Vector3.new(0, 2, 0)) * CFrame.Angles(math.rad(90), 0, 0)
-    task.wait(0.05)
-    
-    if firetouchinterest then
-        firetouchinterest(root, coin, 0)
-        firetouchinterest(root, coin, 1)
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = false end
+        if hrp then hrp.Anchored = false end
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
     end
-    
-    local cd = coin:FindFirstChildOfClass("ClickDetector")
-    if cd and fireclickdetector then fireclickdetector(cd) end
-    local prompt = coin:FindFirstChildOfClass("ProximityPrompt") or (coin.Parent and coin.Parent:FindFirstChildOfClass("ProximityPrompt"))
-    if prompt and fireproximityprompt then fireproximityprompt(prompt) end
-    task.wait(0.1)
-    return not coin.Parent
 end
 
 task.spawn(function()
     while true do
         if State.AutoFarm then
             Workspace.FallenPartsDestroyHeight = 0/0
+            if not platform then startFarm() end
+            
             if tick() - lastScan > 0.8 then coinCache = findCoins(); lastScan = tick() end
-        else coinCache = {}; lastScan = 0 end
+        else 
+            coinCache = {}; lastScan = 0 
+            if platform then stopFarm() end
+        end
         task.wait(0.5)
     end
 end)
 
 task.spawn(function()
     while true do
-        if State.AutoFarm then
+        if State.AutoFarm and platform then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                
-                if hum then
-                    hum.PlatformStand = true
-                end
-                
-                forceNoClip()
-                
-                if #coinCache > 0 then
-                    local nearest = nil
-                    local minDist = math.huge
-                    for _, coin in pairs(coinCache) do
-                        if coin and coin.Parent then
-                            local d = (root.Position - coin.Position).Magnitude
-                            if d < minDist then nearest = coin; minDist = d end
+                local target = nil
+                local shortestDist = math.huge
+                for _, coin in pairs(coinCache) do
+                    if coin and coin.Parent then
+                        local dist = (platform.Position - coin.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            target = coin
                         end
                     end
+                end
+                
+                if target then
+                    -- Полёт под полом
+                    local underCF = CFrame.new(target.Position.X, UNDER_Y, target.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
+                    local tween1 = TweenService:Create(platform, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {CFrame = underCF})
+                    tween1:Play()
+                    tween1.Completed:Wait()
                     
-                    if nearest then
-                        -- Летим под полом к X/Z монеты
-                        moveToPositionUnderMap(nearest.Position)
-                        -- Выныриваем, собираем
-                        collectCoin(nearest)
-                        -- Уходим обратно под пол
-                        root.Anchored = true
-                        root.CFrame = CFrame.new(nearest.Position.X, UNDER_Y, nearest.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
-                        
-                        for i, c in pairs(coinCache) do if c == nearest then table.remove(coinCache, i); break end end
-                        task.wait(0.1)
-                    else
-                        coinCache = findCoins()
+                    -- Выныриваем
+                    local coinCF = target.CFrame * CFrame.Angles(math.rad(90), 0, 0)
+                    local tween2 = TweenService:Create(platform, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {CFrame = coinCF})
+                    tween2:Play()
+                    tween2.Completed:Wait()
+                    
+                    -- Собираем
+                    if firetouchinterest then
+                        firetouchinterest(char.HumanoidRootPart, target, 0)
+                        firetouchinterest(char.HumanoidRootPart, target, 1)
                     end
+                    
+                    -- Обратно под пол
+                    local tween3 = TweenService:Create(platform, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {CFrame = underCF})
+                    tween3:Play()
+                    tween3.Completed:Wait()
+                    
+                    -- Удаляем собранную монету из кэша
+                    for i, c in pairs(coinCache) do if c == target then table.remove(coinCache, i); break end end
+                    task.wait(0.1)
                 else
-                    coinCache = findCoins()
                     task.wait(0.5)
                 end
-            end
-        else
-            local char = LocalPlayer.Character
-            if char then 
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then hum.PlatformStand = false end
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then root.Anchored = false end
-                for _, part in pairs(char:GetDescendants()) do 
-                    if part:IsA("BasePart") then part.CanCollide = true end 
-                end 
             end
         end
         task.wait(0.1)
