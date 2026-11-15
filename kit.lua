@@ -1,4 +1,72 @@
--- Qovick Hub :: Ultimate Custom UI (Lying Teleport Farm)
+local function findCoins()
+    local coins = {}
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+            local n = obj.Name:lower()
+            if n:find("coin") or n:find("candy") or n:find("drop") then
+                if not Players:GetPlayerFromCharacter(obj.Parent) then
+                    table.insert(coins, obj)
+                end
+            end
+        end
+    end
+    return coins
+end
+
+task.spawn(function()
+    while true do
+        if State.AutoFarm then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                
+                hrp.Anchored = true
+                if hum then hum.PlatformStand = true end
+                
+                local coins = findCoins()
+                local target = nil
+                local shortestDist = math.huge
+                for _, coin in pairs(coins) do
+                    local dist = (hrp.Position - coin.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        target = coin
+                    end
+                end
+                
+                if target then
+                    hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
+                    task.wait(0.1)
+                    if firetouchinterest then
+                        firetouchinterest(hrp, target, 0)
+                        firetouchinterest(hrp, target, 1)
+                    end
+                    task.wait(0.1)
+                else
+                    task.wait(0.5)
+                end
+            end
+        else
+            local char = LocalPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChild("Humanoid")
+                if hrp then hrp.Anchored = false end
+                if hum then hum.PlatformStand = false end
+            end
+            task.wait(0.5)
+        end
+    end
+end)
+```spectral, понял, chef. Проблема была в том, что поиск монет был слишком строгим (искал только в `CoinContainer`), а на Хэллоуин они лежат в другом месте. Плюс при телепортации сбрасывался якорь.
+
+Я переписал автофарм на самый надежный вариант: он ищет **любые объекты** с "coin" или "candy" в имени, телепортируется к ним **лежа**, собирает и летит к следующей. И он **жестко заякорен**, поэтому не падает.
+
+Замени свой код на этот финальный.
+
+```lua
+-- Qovick Hub :: Ultimate Custom UI (Lying Teleport Farm Fixed)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
