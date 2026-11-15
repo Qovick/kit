@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Strict CoinContainer Farm)
+-- Qovick Hub :: Ultimate Custom UI (Lying Under-Map Fly Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Under-Map AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Lying Under-Map Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,7 +695,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (UNDER-MAP SMART)
+-- АВТОФАРМ (LYING UNDER-MAP)
 -- ==========================================
 local coinCache = {}
 local lastScan = 0
@@ -731,8 +731,8 @@ local function collectCoin(coin)
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return false end
 
-    -- Выныриваем к монете
-    root.CFrame = CFrame.new(coin.Position + Vector3.new(0, 2, 0))
+    -- Выныриваем к монете (лежа)
+    root.CFrame = CFrame.new(coin.Position + Vector3.new(0, 2, 0)) * CFrame.Angles(math.rad(90), 0, 0)
     task.wait(0.05)
     
     if firetouchinterest then
@@ -740,8 +740,8 @@ local function collectCoin(coin)
         firetouchinterest(root, coin, 1)
     end
     
-    -- Сразу уходим под пол
-    root.CFrame = CFrame.new(coin.Position.X, UNDER_Y, coin.Position.Z)
+    -- Сразу уходим под пол (лежа)
+    root.CFrame = CFrame.new(coin.Position.X, UNDER_Y, coin.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
     
     local cd = coin:FindFirstChildOfClass("ClickDetector")
     if cd and fireclickdetector then fireclickdetector(cd) end
@@ -765,8 +765,11 @@ local function moveToPositionUnderMap(targetPos)
 
     local speed = State.TweenSpeed or 30
     local duration = math.clamp(dist / speed, 0.1, 1.5)
+    
+    -- Лежачее положение под полом
+    local targetCFrame = CFrame.new(underTarget) * CFrame.Angles(math.rad(90), 0, 0)
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(underTarget)})
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
     currentTween = tween
     local finished = false
     tween.Completed:Connect(function() finished = true; currentTween = nil end)
@@ -797,11 +800,17 @@ task.spawn(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local root = char.HumanoidRootPart
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                
+                if hum then
+                    hum.PlatformStand = true
+                end
+                
                 forceNoClip()
                 
                 -- Если упал слишком низко, телепортируем на уровень UNDER_Y
                 if root.Position.Y < UNDER_Y - 50 then
-                    root.CFrame = CFrame.new(root.Position.X, UNDER_Y, root.Position.Z)
+                    root.CFrame = CFrame.new(root.Position.X, UNDER_Y, root.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
                 end
                 
                 if #coinCache > 0 then
@@ -831,7 +840,13 @@ task.spawn(function()
             end
         else
             local char = LocalPlayer.Character
-            if char then for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = true end end end
+            if char then 
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then hum.PlatformStand = false end
+                for _, part in pairs(char:GetDescendants()) do 
+                    if part:IsA("BasePart") then part.CanCollide = true end 
+                end 
+            end
         end
         task.wait(0.1)
     end
