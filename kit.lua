@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Laying Farm)
+-- Qovick Hub :: Ultimate Custom UI (Laying Farm Fixed)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -698,7 +698,7 @@ end)
 -- АВТОФАРМ (LAYING DOWN)
 -- ==========================================
 task.spawn(function()
-    local alignPos, alignOri, att
+    local alignPos, bg, att
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
@@ -710,9 +710,10 @@ task.spawn(function()
                 local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     local n = obj.Name:lower()
-                    if n:find("coin") or n:find("candy") or n:find("drop") then
+                    if n:find("coin") or n:find("candy") then
                         local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                        if part and part:IsA("BasePart") then
+                        -- Проверка, чтобы не брать части игроков
+                        if part and part:IsA("BasePart") and not Players:GetPlayerFromCharacter(part.Parent) and not Players:GetPlayerFromCharacter(part.Parent.Parent) then
                             local dist = (hrp.Position - part.Position).Magnitude
                             if dist < shortestDist then
                                 shortestDist = dist
@@ -728,7 +729,7 @@ task.spawn(function()
                     hum.MaxHealth = math.huge
                     hum.Health = math.huge
                     hum.PlatformStand = true
-                    hum:ChangeState(Enum.HumanoidStateType.Physics) -- Отключаем попытки встать
+                    hum:ChangeState(Enum.HumanoidStateType.Physics)
                     
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = false end
@@ -736,7 +737,7 @@ task.spawn(function()
 
                     if not alignPos or alignPos.Parent ~= hrp then
                         if alignPos then alignPos:Destroy() end
-                        if alignOri then alignOri:Destroy() end
+                        if bg then bg:Destroy() end
                         if att then att:Destroy() end
                         
                         att = Instance.new("Attachment", hrp)
@@ -747,20 +748,17 @@ task.spawn(function()
                         alignPos.MaxForce = math.huge
                         alignPos.Responsiveness = 500
                         
-                        alignOri = Instance.new("AlignOrientation", hrp)
-                        alignOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
-                        alignOri.Attachment0 = att
-                        alignOri.MaxTorque = math.huge
-                        alignOri.Responsiveness = 500
+                        bg = Instance.new("BodyGyro", hrp)
+                        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                        bg.P = 10000
                     end
 
                     alignPos.Position = target.Position
-                    -- Наклоняем персонажа на 90 градусов (лежа)
-                    alignOri.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
+                    -- Наклон 90 градусов (лежа лицом вниз)
+                    bg.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
                     
                     if (hrp.Position - target.Position).Magnitude < 1.5 then
                         alignPos.Position = hrp.Position
-                        alignOri.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(math.rad(90), 0, 0)
                         
                         if firetouchinterest then
                             firetouchinterest(hrp, target, 0)
@@ -770,7 +768,7 @@ task.spawn(function()
                     end
                 else
                     if alignPos then alignPos:Destroy(); alignPos = nil end
-                    if alignOri then alignOri:Destroy(); alignOri = nil end
+                    if bg then bg:Destroy(); bg = nil end
                     if att then att:Destroy(); att = nil end
                     
                     hum.PlatformStand = false
@@ -782,7 +780,7 @@ task.spawn(function()
             end
         else
             if alignPos then alignPos:Destroy(); alignPos = nil end
-            if alignOri then alignOri:Destroy(); alignOri = nil end
+            if bg then bg:Destroy(); bg = nil end
             if att then att:Destroy(); att = nil end
             local char = LocalPlayer.Character
             if char then
