@@ -1,5 +1,5 @@
--- Qovick Hub :: Ultimate Custom UI (All-In-One Fixed)
-print("[Qovick] Script started...")
+-- Qovick Hub :: Ultimate Custom UI (Prompt Farm)
+print("[Qovick] Загрузка...")
 
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
@@ -422,7 +422,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Lying Teleport Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Prompt Teleport Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -460,126 +460,6 @@ Players.PlayerAdded:Connect(function() TrollDropdown.UpdateOptions(getPlayerName
 Players.PlayerRemoving:Connect(function(p) 
     TrollDropdown.UpdateOptions(getPlayerNames())
     if flingTarget == p.Name then flingTarget = nil end
-end)
-
--- ==========================================
--- SKID FLING
--- ==========================================
-local function SkidFling(TargetPlayer)
-    local Character = LocalPlayer.Character
-    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Humanoid and Humanoid.RootPart
-    local TCharacter = TargetPlayer.Character
-    if not TCharacter then return end
-    
-    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
-    local TRootPart = THumanoid and THumanoid.RootPart
-    local THead = TCharacter:FindFirstChild("Head")
-    local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
-    local Handle = Accessory and Accessory:FindFirstChild("Handle")
-    
-    if Character and Humanoid and RootPart then
-        if RootPart.Velocity.Magnitude < 50 then
-            getgenv().OldPos = RootPart.CFrame
-        end
-        
-        if THumanoid and THumanoid.Sit then return end
-        
-        if THead then
-            workspace.CurrentCamera.CameraSubject = THead
-        elseif Handle then
-            workspace.CurrentCamera.CameraSubject = Handle
-        elseif THumanoid and TRootPart then
-            workspace.CurrentCamera.CameraSubject = THumanoid
-        end
-        
-        if not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
-        
-        local FPos = function(BasePart, Pos, Ang)
-            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
-            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
-            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-        end
-        
-        local SFBasePart = function(BasePart)
-            local TimeToWait = 2
-            local Time = tick()
-            local Angle = 0
-            repeat
-                if RootPart and THumanoid then
-                    if BasePart.Velocity.Magnitude < 50 then
-                        Angle = Angle + 100
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                    else
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                    end
-                end
-            until Time + TimeToWait < tick() or not State.FlingActive
-        end
-        
-        local oldFPDH = workspace.FallenPartsDestroyHeight
-        workspace.FallenPartsDestroyHeight = 0/0
-        
-        local BV = Instance.new("BodyVelocity")
-        BV.Parent = RootPart
-        BV.Velocity = Vector3.new(0, 0, 0)
-        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-        
-        if TRootPart then
-            SFBasePart(TRootPart)
-        elseif THead then
-            SFBasePart(THead)
-        elseif Handle then
-            SFBasePart(Handle)
-        end
-        
-        BV:Destroy()
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-        workspace.CurrentCamera.CameraSubject = Humanoid
-        
-        if getgenv().OldPos then
-            repeat
-                RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-                Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
-                Humanoid:ChangeState("GettingUp")
-                for _, part in pairs(Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new()
-                    end
-                end
-                task.wait()
-            until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25 or not State.FlingActive
-            workspace.FallenPartsDestroyHeight = oldFPDH
-        end
-    end
-end
-
-Troll:CreateToggle("Fling Player (Skid)", false, function(v)
-    State.FlingActive = v
-    if v and flingTarget and flingTarget ~= "None" then
-        task.spawn(function()
-            while State.FlingActive do
-                local target = Players:FindFirstChild(flingTarget)
-                if target and target.Character then
-                    SkidFling(target)
-                end
-                task.wait(0.5)
-            end
-        end)
-    end
 end)
 
 local Settings = QovickUI:CreateTab("Settings")
@@ -697,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (LYING TELEPORT)
+-- АВТОФАРМ (PROMPT COLLECT)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -729,10 +609,23 @@ task.spawn(function()
                     task.wait(0.1)
                     
                     if firetouchinterest then
-                        firetouchinterest(hrp, target, 0)
-                        firetouchinterest(hrp, target, 1)
+                        pcall(function()
+                            firetouchinterest(hrp, target, 0)
+                            firetouchinterest(hrp, target, 1)
+                        end)
                     end
-                    task.wait(0.1)
+                    
+                    local cd = target:FindFirstChildOfClass("ClickDetector")
+                    if cd and fireclickdetector then
+                        pcall(function() fireclickdetector(cd) end)
+                    end
+                    
+                    local prompt = target:FindFirstChildOfClass("ProximityPrompt") or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
+                    if prompt and fireproximityprompt then
+                        pcall(function() fireproximityprompt(prompt) end)
+                    end
+                    
+                    task.wait(0.3) -- Пауза, чтобы сервер засчитал
                 else
                     task.wait(0.5)
                 end
@@ -862,4 +755,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("[Qovick] UI Loaded successfully!")
+print("[Qovick] Скрипт полностью загружен!")
