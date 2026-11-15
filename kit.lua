@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fixed Buttons & Farm)
+-- Qovick Hub :: Ultimate Custom UI (Fast Farm + Fixed Silent Aim)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -326,7 +326,7 @@ local State = {
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
-Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) State.SilentAim = v end)
+Sheriff:CreateToggle("Silent Aim (Fixed)", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
@@ -420,8 +420,8 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Octree AutoFarm", false, function(v) State.AutoFarm = v end)
-Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
+Farm:CreateToggle("Fast AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
 
@@ -695,137 +695,44 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (OCTREE)
+-- БЫСТРЫЙ АВТОФАРМ (CFRAME TELEPORT)
 -- ==========================================
 task.spawn(function()
-    local Octree = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sleitnick/rbxts-octo-tree/main/src/init.lua", true))()
-    local rt = {}
-    rt.Players = game:GetService("Players")
-    rt.player = rt.Players.LocalPlayer
-    rt.octree = Octree.new()
-    rt.touchedCoins = {}
-    rt.positionChangeConnections = setmetatable({}, { __mode = "v" })
-    rt.walkspeed = 30
-
-    local function isCoinTouched(coin)
-        return rt.touchedCoins[coin]
-    end
-
-    local function markCoinAsTouched(coin)
-        rt.touchedCoins[coin] = true
-        local node = rt.octree:FindFirstNode(coin)
-        if node then
-            rt.octree:RemoveNode(node)
-        end
-    end
-
-    local function setupTouchTracking(coin)
-        local touchInterest = coin:FindFirstChildWhichIsA("TouchTransmitter")
-        if touchInterest then
-            local connection
-            connection = touchInterest.AncestryChanged:Connect(function(_, parent)
-                if parent == nil then
-                    markCoinAsTouched(coin)
-                    if connection then connection:Disconnect() end
-                end
-            end)
-            rt.positionChangeConnections[coin] = connection
-        end
-    end
-
-    local function setupPositionTracking(coin, LastPositonY)
-        local connection
-        connection = coin:GetPropertyChangedSignal("Position"):Connect(function()
-            local currentY = coin.Position.Y
-            if LastPositonY and LastPositonY ~= currentY then
-                markCoinAsTouched(coin)
-                if connection then connection:Disconnect() end
-                coin:Destroy()
-            end
-        end)
-        rt.positionChangeConnections[coin] = connection
-    end
-
-    local function populateOctree(container)
-        rt.octree:ClearAllNodes()
-        for _, descendant in pairs(container:GetDescendants()) do
-            if descendant:IsA("TouchTransmitter") then
-                local parentCoin = descendant.Parent
-                if not isCoinTouched(parentCoin) then
-                    rt.octree:CreateNode(parentCoin.Position, parentCoin)
-                    setupTouchTracking(parentCoin)
-                end
-                setupPositionTracking(parentCoin, parentCoin.Position.Y)
-            end
-        end
-    end
-
-    local function moveToPositionSlowly(targetPosition, duration)
-        local char = LocalPlayer.Character
-        if not char or not char.PrimaryPart then return end
-        local startPosition = char.PrimaryPart.Position
-        local startTime = tick()
-        
-        while true do
-            if not State.AutoFarm then break end
-            local elapsedTime = tick() - startTime
-            local alpha = math.min(elapsedTime / duration, 1)
-            char:PivotTo(CFrame.new(startPosition:Lerp(targetPosition, alpha)))
-
-            if alpha >= 1 then
-                task.wait(0.2)
-                break
-            end
-
-            task.wait()
-        end
-    end
-
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if char and hum then
-                -- Ищем CoinContainer по всему Workspace, так как карта может называться иначе
-                local coinContainer = nil
-                for _, v in pairs(Workspace:GetDescendants()) do
-                    if v.Name == "CoinContainer" then
-                        coinContainer = v
-                        break
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                local hrp = char.HumanoidRootPart
+                local hum = char.Humanoid
+                
+                -- Ищем ближайшую монету
+                local target = nil
+                local shortestDist = math.huge
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then
+                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
+                        if part and not Players:GetPlayerFromCharacter(part.Parent) then
+                            local dist = (hrp.Position - part.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                target = part
+                            end
+                        end
                     end
                 end
-                
-                if coinContainer then
-                    populateOctree(coinContainer)
-                    local waypoint = char:GetPivot()
-                    
-                    while State.AutoFarm do
-                        local gui = LocalPlayer.PlayerGui:FindFirstChild("MainGUI")
-                        if gui and gui:FindFirstChild("Game") and gui.Game:FindFirstChild("CoinBags") then
-                            local bag = gui.Game.CoinBags:FindFirstChild("Container")
-                            if bag and bag:FindFirstChild("SnowToken") and bag.SnowToken:FindFirstChild("FullBagIcon") and bag.SnowToken.FullBagIcon.Visible then
-                                break
-                            end
-                        end
 
-                        local nearestNode = rt.octree:GetNearest(char.PrimaryPart.Position, 200, 1)[1]
-                        if nearestNode then
-                            local closestCoin = nearestNode.Object
-                            if not isCoinTouched(closestCoin) then
-                                local closestCoinPosition = closestCoin.Position
-                                local distance = (char.PrimaryPart.Position - closestCoinPosition).Magnitude
-                                local duration = distance / rt.walkspeed
-                                
-                                moveToPositionSlowly(closestCoinPosition, duration)
-                                markCoinAsTouched(closestCoin)
-                                task.wait(0.2)
-                            end
-                        else
-                            task.wait(1)
-                        end
+                if target then
+                    -- Телепорт прямо в монету
+                    hrp.CFrame = target.CFrame
+                    
+                    -- Сбор
+                    if firetouchinterest then
+                        firetouchinterest(hrp, target, 0)
+                        firetouchinterest(hrp, target, 1)
                     end
                     
-                    char:PivotTo(waypoint)
+                    -- Скорость фарма (чем больше, тем быстрее)
+                    task.wait((101 - State.TweenSpeed) / 200)
                 end
             end
         end
@@ -861,58 +768,51 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- CUSTOM SILENT AIM (FROM SAM)
+-- FIXED SILENT AIM (FIRESERVER HOOK)
 -- ==========================================
-local FOV_CIRCLE = Drawing.new("Circle")
-FOV_CIRCLE.Visible = false
-FOV_CIRCLE.Filled = false
-FOV_CIRCLE.Thickness = 1
-FOV_CIRCLE.Transparency = 1
-FOV_CIRCLE.Color = Color3.new(0, 1, 0)
-FOV_CIRCLE.Radius = 130
-FOV_CIRCLE.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-local Options = { Torso = "HumanoidRootPart", Head = "Head" }
-local DontShootThesePeople = {"AimLockPsycho", "JakeTheMiddleMan"}
-local Prediction = 25
-
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, Index)
-    if self == Mouse and (Index == "Hit") then 
-        if State.SilentAim then
-            local Distance = 9e9
-            local Target = nil
-            for _, v in pairs(Players:GetPlayers()) do 
-                if not table.find(DontShootThesePeople, v.Name) then
-                    if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") and v.Character:FindFirstChild("Humanoid").Health > 0 then
-                        local Enemy = v.Character    
-                        local CastingFrom = CFrame.new(Camera.CFrame.Position, Enemy[Options.Torso].CFrame.Position) * CFrame.new(0, 0, -4)
-                        local RayCast = Ray.new(CastingFrom.Position, CastingFrom.LookVector * 9000)
-                        local World, ToSpace = Workspace:FindPartOnRayWithIgnoreList(RayCast, {LocalPlayer.Character:FindFirstChild("Head")})
-                        local RootWorld = (Enemy[Options.Torso].CFrame.Position - ToSpace).magnitude
-                        if RootWorld < 4 then        
-                            local RootPartPosition, Visible = Camera:WorldToScreenPoint(Enemy[Options.Torso].Position)
-                            if Visible then
-                                local Real_Magnitude = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(RootPartPosition.X, RootPartPosition.Y)).Magnitude
-                                if Real_Magnitude < Distance and Real_Magnitude < FOV_CIRCLE.Radius then
-                                    Distance = Real_Magnitude
-                                    Target = Enemy
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            if Target ~= nil and Target[Options.Torso] and Target:FindFirstChild("Humanoid").Health > 0 then
-                local ShootThis = Target[Options.Torso]
-                local Predicted_Position = ShootThis.CFrame + (ShootThis.Velocity * Prediction + Vector3.new(0,-.5,0))
-                return Predicted_Position
+local function getMurderer()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hasKnife = (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (p.Character:FindFirstChild("Knife"))
+            if hasKnife and p.Character:FindFirstChild("HumanoidRootPart") then
+                return p.Character.HumanoidRootPart
             end
         end
     end
-    return oldIndex(self, Index)
-end))
+    return nil
+end
+
+pcall(function()
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if State.SilentAim and method == "FireServer" then
+            local murderer = getMurderer()
+            if murderer then
+                if self.Name == "Shoot" or self.Name == "Fire" or (self.Parent and (self.Parent.Name == "Gun" or self.Parent.Name == "Sheriff")) then
+                    local args = {...}
+                    local newArgs = {}
+                    for i, v in pairs(args) do
+                        if typeof(v) == "Vector3" then
+                            newArgs[i] = murderer.Position
+                        elseif typeof(v) == "CFrame" then
+                            newArgs[i] = CFrame.new(murderer.Position)
+                        elseif typeof(v) == "Instance" and v:IsA("Model") then
+                            newArgs[i] = murderer.Parent
+                        else
+                            newArgs[i] = v
+                        end
+                    end
+                    return oldNamecall(self, unpack(newArgs))
+                end
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt, true)
+end)
 
 -- AUTO SHOOT
 task.spawn(function()
@@ -920,7 +820,10 @@ task.spawn(function()
         if State.AutoShoot then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                pcall(function() mouse1click() end)
+                local murderer = getMurderer()
+                if murderer then
+                    pcall(function() mouse1click() end)
+                end
             end
         end
     end
