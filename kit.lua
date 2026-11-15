@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Under-Map Farm)
+-- Qovick Hub :: Ultimate Custom UI (Strict CoinContainer Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -713,12 +713,12 @@ end
 
 local function findCoins()
     local coins = {}
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and not obj:IsA("Terrain") and obj.CanCollide == false then
-            local n = obj.Name:lower()
-            if n:find("coin") or n:find("money") or n:find("gem") or n:find("gold") or n:find("cash") or n:find("collect") or n:find("loot") or n:find("candy") then
-                table.insert(coins, obj)
-            end
+    local container = Workspace:FindFirstChild("CoinContainer") or Workspace:FindFirstChild("Coins")
+    if not container then return {} end
+    
+    for _, obj in pairs(container:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            table.insert(coins, obj)
         end
     end
     return coins
