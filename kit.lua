@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Map Farm + Smart Target)
+-- Qovick Hub :: Ultimate Custom UI (Wait for Coins Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Smart Map AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Wait for Coins Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,12 +695,11 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (SMART MAP TARGET)
+-- АВТОФАРМ (WAIT FOR COINS)
 -- ==========================================
 local coinCache = {}
 local lastScan = 0
 local currentTween = nil
-local hasTeleportedToMap = false
 
 local function forceNoClip()
     local char = LocalPlayer.Character
@@ -785,53 +784,36 @@ end)
 task.spawn(function()
     while true do
         if State.AutoFarm then
-            local map = Workspace:FindFirstChild("Map") or Workspace:FindFirstChild("Game")
-            
-            if map then
-                if not hasTeleportedToMap then
-                    local base = map:FindFirstChildWhichIsA("BasePart")
-                    if base and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = base.CFrame + Vector3.new(0, 5, 0)
-                    end
-                    hasTeleportedToMap = true
-                    task.wait(0.5)
-                end
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
+                forceNoClip()
                 
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    local root = char.HumanoidRootPart
-                    forceNoClip()
+                if #coinCache > 0 then
+                    local nearest = nil
+                    local minDist = math.huge
+                    for _, coin in pairs(coinCache) do
+                        if coin and coin.Parent then
+                            local d = (root.Position - coin.Position).Magnitude
+                            if d < minDist then nearest = coin; minDist = d end
+                        end
+                    end
                     
-                    if #coinCache > 0 then
-                        local nearest = nil
-                        local minDist = math.huge
-                        for _, coin in pairs(coinCache) do
-                            if coin and coin.Parent then
-                                local d = (root.Position - coin.Position).Magnitude
-                                if d < minDist then nearest = coin; minDist = d end
-                            end
-                        end
-                        
-                        if nearest then
-                            local safePos = nearest.Position + Vector3.new(0, 3, 0)
-                            moveToPosition(safePos)
-                            collectCoin(nearest)
-                            for i, c in pairs(coinCache) do if c == nearest then table.remove(coinCache, i); break end end
-                            task.wait(0.1)
-                        else
-                            coinCache = findCoins()
-                        end
+                    if nearest then
+                        local safePos = nearest.Position + Vector3.new(0, 3, 0)
+                        moveToPosition(safePos)
+                        collectCoin(nearest)
+                        for i, c in pairs(coinCache) do if c == nearest then table.remove(coinCache, i); break end end
+                        task.wait(0.1)
                     else
                         coinCache = findCoins()
-                        task.wait(0.5)
                     end
+                else
+                    coinCache = findCoins()
+                    task.wait(0.5)
                 end
-            else
-                hasTeleportedToMap = false
-                coinCache = {}
             end
         else
-            hasTeleportedToMap = false
             local char = LocalPlayer.Character
             if char then for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = true end end end
         end
