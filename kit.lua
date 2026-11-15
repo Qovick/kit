@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (No AutoClick Farm)
+-- Qovick Hub :: Ultimate Custom UI (No Auto Click)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -319,7 +319,7 @@ function QovickUI:CreateTab(name)
 end
 
 local State = {
-    SilentAim = false, AutoShoot = false, FOVSize = 120, TargetPart = "Head",
+    SilentAim = false, FOVSize = 120, TargetPart = "Head",
     KillAura = false, KillDist = 20,
     ESP = false, ESPName = true, ESPBox = false, ESPTracer = false, ESPOutline = false, MaxDist = 2000,
     WalkSpeed = 16, JumpPower = 50, FlyActive = false, Noclip = false,
@@ -329,7 +329,6 @@ local State = {
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
 Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) State.SilentAim = v end)
-Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
 
@@ -577,7 +576,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (NO CLICK, JUST TOUCH)
+-- АВТОФАРМ (NO CLICK)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -621,37 +620,19 @@ task.spawn(function()
                     hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.05)
                     
-                    -- Unanchor to force touch
                     hrp.Anchored = false
                     hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.1)
                     
-                    -- Touch all parts of the target (if model)
-                    if target:IsA("BasePart") then
-                        pcall(function()
-                            for _, part in pairs(char:GetDescendants()) do
-                                if part:IsA("BasePart") then
-                                    firetouchinterest(part, target, 0)
-                                    firetouchinterest(part, target, 1)
-                                end
-                            end
-                        end)
-                    else
-                        pcall(function()
-                            for _, part in pairs(target:GetDescendants()) do
-                                if part:IsA("BasePart") then
-                                    for _, p2 in pairs(char:GetDescendants()) do
-                                        if p2:IsA("BasePart") then
-                                            firetouchinterest(p2, part, 0)
-                                            firetouchinterest(p2, part, 1)
-                                        end
-                                    end
-                                end
-                            end
-                        end)
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            pcall(function()
+                                firetouchinterest(part, target, 0)
+                                firetouchinterest(part, target, 1)
+                            end)
+                        end
                     end
                     
-                    -- Click & Prompt
                     local cd = target:FindFirstChildOfClass("ClickDetector")
                     if cd and fireclickdetector then pcall(function() fireclickdetector(cd) end) end
                     local prompt = target:FindFirstChildOfClass("ProximityPrompt") or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
@@ -757,21 +738,6 @@ pcall(function()
         return oldNamecall(self, ...)
     end)
     setreadonly(mt, true)
-end)
-
--- AUTO SHOOT
-task.spawn(function()
-    while task.wait(0.05) do
-        if State.AutoShoot then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local murderer = getMurderer()
-                if murderer then
-                    pcall(function() mouse1click() end)
-                end
-            end
-        end
-    end
 end)
 
 -- KILL AURA
