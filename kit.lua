@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Lying Under-Map Fly Farm)
+-- Qovick Hub :: Ultimate Custom UI (Anchored Under-Map Fly)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Lying Under-Map Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Anchored Under-Map Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,7 +695,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (LYING UNDER-MAP)
+-- АВТОФАРМ (ANCHORED UNDER-MAP)
 -- ==========================================
 local coinCache = {}
 local lastScan = 0
@@ -758,6 +758,9 @@ local function moveToPositionUnderMap(targetPos)
     if not root then return false end
 
     if currentTween then currentTween:Cancel(); currentTween = nil end
+    
+    -- Якорим, чтобы не упал
+    root.Anchored = true
     
     local underTarget = Vector3.new(targetPos.X, UNDER_Y, targetPos.Z)
     local dist = (root.Position - underTarget).Magnitude
@@ -843,6 +846,8 @@ task.spawn(function()
             if char then 
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if hum then hum.PlatformStand = false end
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then root.Anchored = false end
                 for _, part in pairs(char:GetDescendants()) do 
                     if part:IsA("BasePart") then part.CanCollide = true end 
                 end 
