@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Under-Floor Touch)
+-- Qovick Hub :: Ultimate Custom UI (Under-Floor Hitbox)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -577,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (UNDER-FLOOR TOUCH)
+-- АВТОФАРМ (UNDER-FLOOR HITBOX)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -617,17 +617,11 @@ task.spawn(function()
                 end
                 
                 if target then
-                    local underPos = Vector3.new(target.Position.X, -50, target.Position.Z)
-                    hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
-                    task.wait(0.05)
-                    
-                    -- Остаемся под полом, но поднимаемся чуть выше, чтобы задеть монету
-                    local nearPos = Vector3.new(target.Position.X, target.Position.Y - 3, target.Position.Z)
-                    hrp.Anchored = false
-                    hrp.CFrame = CFrame.new(nearPos) * CFrame.Angles(math.rad(90), 0, 0)
+                    -- Телепорт ровно под монету (хитбокс заденет её)
+                    local hitboxPos = Vector3.new(target.Position.X, target.Position.Y - 2.5, target.Position.Z)
+                    hrp.CFrame = CFrame.new(hitboxPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.1)
                     
-                    -- Собираем (все способы)
                     for _, part in pairs(char:GetDescendants()) do
                         if part:IsA("BasePart") then
                             pcall(function()
@@ -643,10 +637,6 @@ task.spawn(function()
                     if prompt and fireproximityprompt then pcall(function() fireproximityprompt(prompt) end) end
                     
                     task.wait(0.2)
-                    
-                    hrp.Anchored = true
-                    hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
-                    task.wait(0.05)
                 else
                     task.wait(0.5)
                 end
