@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Anchored Under-Map Fly)
+-- Qovick Hub :: Ultimate Custom UI (Hard-Anchored Under-Map Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Anchored Under-Map Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Hard-Anchored Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,7 +695,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (ANCHORED UNDER-MAP)
+-- АВТОФАРМ (HARD ANCHORED UNDER-MAP)
 -- ==========================================
 local coinCache = {}
 local lastScan = 0
@@ -724,6 +724,33 @@ local function findCoins()
     return coins
 end
 
+local function moveToPositionUnderMap(targetPos)
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    local startPos = root.Position
+    local endPos = Vector3.new(targetPos.X, UNDER_Y, targetPos.Z)
+    local dist = (startPos - endPos).Magnitude
+    local speed = State.TweenSpeed or 30
+    local time = math.clamp(dist / speed, 0.1, 1.5)
+    
+    local startTime = tick()
+    while tick() - startTime < time do
+        if not State.AutoFarm or not root.Parent then return false end
+        local alpha = (tick() - startTime) / time
+        if alpha > 1 then alpha = 1 end
+        local currentPos = startPos:Lerp(endPos, alpha)
+        
+        -- Жестко якорим и двигаем
+        root.Anchored = true
+        root.CFrame = CFrame.new(currentPos) * CFrame.Angles(math.rad(90), 0, 0)
+        task.wait(0.02)
+    end
+    return true
+end
+
 local function collectCoin(coin)
     if not coin or not coin.Parent then return false end
     local char = LocalPlayer.Character
@@ -732,6 +759,7 @@ local function collectCoin(coin)
     if not root then return false end
 
     -- Выныриваем к монете (лежа)
+    root.Anchored = true
     root.CFrame = CFrame.new(coin.Position + Vector3.new(0, 2, 0)) * CFrame.Angles(math.rad(90), 0, 0)
     task.wait(0.05)
     
@@ -740,51 +768,12 @@ local function collectCoin(coin)
         firetouchinterest(root, coin, 1)
     end
     
-    -- Сразу уходим под пол (лежа)
-    root.CFrame = CFrame.new(coin.Position.X, UNDER_Y, coin.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
-    
     local cd = coin:FindFirstChildOfClass("ClickDetector")
     if cd and fireclickdetector then fireclickdetector(cd) end
     local prompt = coin:FindFirstChildOfClass("ProximityPrompt") or (coin.Parent and coin.Parent:FindFirstChildOfClass("ProximityPrompt"))
     if prompt and fireproximityprompt then fireproximityprompt(prompt) end
     task.wait(0.1)
     return not coin.Parent
-end
-
-local function moveToPositionUnderMap(targetPos)
-    local char = LocalPlayer.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-
-    if currentTween then currentTween:Cancel(); currentTween = nil end
-    
-    -- Якорим, чтобы не упал
-    root.Anchored = true
-    
-    local underTarget = Vector3.new(targetPos.X, UNDER_Y, targetPos.Z)
-    local dist = (root.Position - underTarget).Magnitude
-    if dist < 0.5 then return true end
-
-    local speed = State.TweenSpeed or 30
-    local duration = math.clamp(dist / speed, 0.1, 1.5)
-    
-    -- Лежачее положение под полом
-    local targetCFrame = CFrame.new(underTarget) * CFrame.Angles(math.rad(90), 0, 0)
-    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
-    currentTween = tween
-    local finished = false
-    tween.Completed:Connect(function() finished = true; currentTween = nil end)
-    tween:Play()
-    local startTime = tick()
-    while not finished do
-        if not root.Parent then if currentTween then currentTween:Cancel() end return false end
-        forceNoClip()
-        if tick() - startTime > 5 then if currentTween then currentTween:Cancel() end break end
-        task.wait(0.1)
-    end
-    return true
 end
 
 task.spawn(function()
@@ -811,11 +800,6 @@ task.spawn(function()
                 
                 forceNoClip()
                 
-                -- Если упал слишком низко, телепортируем на уровень UNDER_Y
-                if root.Position.Y < UNDER_Y - 50 then
-                    root.CFrame = CFrame.new(root.Position.X, UNDER_Y, root.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
-                end
-                
                 if #coinCache > 0 then
                     local nearest = nil
                     local minDist = math.huge
@@ -829,8 +813,12 @@ task.spawn(function()
                     if nearest then
                         -- Летим под полом к X/Z монеты
                         moveToPositionUnderMap(nearest.Position)
-                        -- Выныриваем, собираем, уходим
+                        -- Выныриваем, собираем
                         collectCoin(nearest)
+                        -- Уходим обратно под пол
+                        root.Anchored = true
+                        root.CFrame = CFrame.new(nearest.Position.X, UNDER_Y, nearest.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
+                        
                         for i, c in pairs(coinCache) do if c == nearest then table.remove(coinCache, i); break end end
                         task.wait(0.1)
                     else
