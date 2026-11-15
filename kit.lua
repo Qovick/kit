@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (True Silent Aim)
+-- Qovick Hub :: Ultimate Custom UI (Fixed Silent Aim)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -863,7 +863,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- UNIVERSAL SILENT AIM (HOOKS)
+-- UNIVERSAL SILENT AIM (FIXED HOOKS)
 -- ==========================================
 local function getMurderer()
     for _, p in pairs(Players:GetPlayers()) do
@@ -912,23 +912,6 @@ pcall(function()
             end
         end
         return oldNamecall(self, ...)
-    end))
-
-    local oldIndex
-    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-        if State.SilentAim and not checkcaller() and self == Mouse then
-            local target = getMurderer()
-            if target then
-                if key == "Target" or key == "target" then
-                    return target
-                elseif key == "Hit" or key == "hit" then
-                    return target.CFrame
-                elseif key == "UnitRay" then
-                    return Ray.new(self.Origin, (target.Position - self.Origin).Unit)
-                end
-            end
-        end
-        return oldIndex(self, key)
     end))
 end)
 
