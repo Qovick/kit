@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (God Farm + Forced Collect)
+-- Qovick Hub :: Ultimate Custom UI (Unanchored Touch Farm)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -422,7 +422,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Under-Floor God Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Unanchored Touch Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -577,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (UNDER-FLOOR + FORCED COLLECT)
+-- АВТОФАРМ (UNANCHORED TOUCH)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -625,16 +625,19 @@ task.spawn(function()
                     hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.05)
                     
-                    -- 2. Выныриваем к монете
+                    -- 2. Выныриваем к монете (СНИМАЕМ ЯКОРЬ, ЧТОБЫ СЕРВЕР ЗАСЧИТАЛ)
+                    hrp.Anchored = false
                     hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
-                    task.wait(0.15) -- Даем серверу время
+                    task.wait(0.05)
                     
-                    -- 3. Собираем (все способы)
-                    if firetouchinterest then
-                        pcall(function()
-                            firetouchinterest(hrp, target, 0)
-                            firetouchinterest(hrp, target, 1)
-                        end)
+                    -- 3. Собираем (все способы + все части тела)
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            pcall(function()
+                                firetouchinterest(part, target, 0)
+                                firetouchinterest(part, target, 1)
+                            end)
+                        end
                     end
                     
                     local cd = target:FindFirstChildOfClass("ClickDetector")
@@ -645,9 +648,10 @@ task.spawn(function()
                         or (target.Parent and target.Parent.Parent and target.Parent.Parent:FindFirstChildOfClass("ProximityPrompt"))
                     if prompt and fireproximityprompt then pcall(function() fireproximityprompt(prompt) end) end
                     
-                    task.wait(0.1)
+                    task.wait(0.2) -- Даем серверу время
                     
-                    -- 4. Обратно под пол
+                    -- 4. Якорим и уходим под пол
+                    hrp.Anchored = true
                     hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.05)
                 else
