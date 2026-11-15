@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Laying Farm Fixed)
+-- Qovick Hub :: Ultimate Custom UI (Octree Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Laying AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Octree AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,101 +695,139 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (LAYING DOWN)
+-- АВТОФАРМ (OCTREE)
 -- ==========================================
 task.spawn(function()
-    local alignPos, bg, att
+    local Octree = loadstring(game:HttpGet("https://raw.githubusercontent.com/Sleitnick/rbxts-octo-tree/main/src/init.lua", true))()
+    local rt = {}
+    rt.Players = game:GetService("Players")
+    rt.player = rt.Players.LocalPlayer
+    rt.octree = Octree.new()
+    rt.touchedCoins = {}
+    rt.positionChangeConnections = setmetatable({}, { __mode = "v" })
+    rt.walkspeed = 30
+
+    local function isCoinTouched(coin)
+        return rt.touchedCoins[coin]
+    end
+
+    local function markCoinAsTouched(coin)
+        rt.touchedCoins[coin] = true
+        local node = rt.octree:FindFirstNode(coin)
+        if node then
+            rt.octree:RemoveNode(node)
+        end
+    end
+
+    local function setupTouchTracking(coin)
+        local touchInterest = coin:FindFirstChildWhichIsA("TouchTransmitter")
+        if touchInterest then
+            local connection
+            connection = touchInterest.AncestryChanged:Connect(function(_, parent)
+                if parent == nil then
+                    markCoinAsTouched(coin)
+                    if connection then connection:Disconnect() end
+                end
+            end)
+            rt.positionChangeConnections[coin] = connection
+        end
+    end
+
+    local function setupPositionTracking(coin, LastPositonY)
+        local connection
+        connection = coin:GetPropertyChangedSignal("Position"):Connect(function()
+            local currentY = coin.Position.Y
+            if LastPositonY and LastPositonY ~= currentY then
+                markCoinAsTouched(coin)
+                if connection then connection:Disconnect() end
+                coin:Destroy()
+            end
+        end)
+        rt.positionChangeConnections[coin] = connection
+    end
+
+    local function populateOctree()
+        rt.octree:ClearAllNodes()
+        for _, descendant in pairs(rt.coinContainer:GetDescendants()) do
+            if descendant:IsA("TouchTransmitter") then
+                local parentCoin = descendant.Parent
+                if not isCoinTouched(parentCoin) then
+                    rt.octree:CreateNode(parentCoin.Position, parentCoin)
+                    setupTouchTracking(parentCoin)
+                end
+                setupPositionTracking(parentCoin, parentCoin.Position.Y)
+            end
+        end
+    end
+
+    local function moveToPositionSlowly(targetPosition, duration)
+        local char = LocalPlayer.Character
+        if not char or not char.PrimaryPart then return end
+        local startPosition = char.PrimaryPart.Position
+        local startTime = tick()
+        
+        while true do
+            if not State.AutoFarm then break end
+            local elapsedTime = tick() - startTime
+            local alpha = math.min(elapsedTime / duration, 1)
+            char:PivotTo(CFrame.new(startPosition:Lerp(targetPosition, alpha)))
+
+            if alpha >= 1 then
+                task.wait(0.2)
+                break
+            end
+
+            task.wait()
+        end
+    end
+
     while task.wait() do
         if State.AutoFarm then
             local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
-                local hrp = char.HumanoidRootPart
-                local hum = char.Humanoid
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if char and hum then
+                local map = nil
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("Model") and v.Name == "Base" then
+                        map = v.Parent
+                        break
+                    end
+                end
+                
+                if map then
+                    rt.coinContainer = map:FindFirstChild("CoinContainer")
+                    if rt.coinContainer then
+                        populateOctree()
+                        local waypoint = char:GetPivot()
+                        
+                        while State.AutoFarm do
+                            local gui = LocalPlayer.PlayerGui:FindFirstChild("MainGUI")
+                            if gui and gui:FindFirstChild("Game") and gui.Game:FindFirstChild("CoinBags") then
+                                local bag = gui.Game.CoinBags:FindFirstChild("Container")
+                                if bag and bag:FindFirstChild("SnowToken") and bag.SnowToken:FindFirstChild("FullBagIcon") and bag.SnowToken.FullBagIcon.Visible then
+                                    break
+                                end
+                            end
 
-                local target = nil
-                local shortestDist = math.huge
-                for _, obj in pairs(Workspace:GetDescendants()) do
-                    local n = obj.Name:lower()
-                    if n:find("coin") or n:find("candy") then
-                        local part = obj:FindFirstChild("Handle") or (obj:IsA("BasePart") and obj)
-                        -- Проверка, чтобы не брать части игроков
-                        if part and part:IsA("BasePart") and not Players:GetPlayerFromCharacter(part.Parent) and not Players:GetPlayerFromCharacter(part.Parent.Parent) then
-                            local dist = (hrp.Position - part.Position).Magnitude
-                            if dist < shortestDist then
-                                shortestDist = dist
-                                target = part
+                            local nearestNode = rt.octree:GetNearest(char.PrimaryPart.Position, 200, 1)[1]
+                            if nearestNode then
+                                local closestCoin = nearestNode.Object
+                                if not isCoinTouched(closestCoin) then
+                                    local closestCoinPosition = closestCoin.Position
+                                    local distance = (char.PrimaryPart.Position - closestCoinPosition).Magnitude
+                                    local duration = distance / rt.walkspeed
+                                    
+                                    moveToPositionSlowly(closestCoinPosition, duration)
+                                    markCoinAsTouched(closestCoin)
+                                    task.wait(0.2)
+                                end
+                            else
+                                task.wait(1)
                             end
                         end
-                    end
-                end
-
-                if target then
-                    hrp.Anchored = false
-                    
-                    hum.MaxHealth = math.huge
-                    hum.Health = math.huge
-                    hum.PlatformStand = true
-                    hum:ChangeState(Enum.HumanoidStateType.Physics)
-                    
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = false end
-                    end
-
-                    if not alignPos or alignPos.Parent ~= hrp then
-                        if alignPos then alignPos:Destroy() end
-                        if bg then bg:Destroy() end
-                        if att then att:Destroy() end
                         
-                        att = Instance.new("Attachment", hrp)
-                        
-                        alignPos = Instance.new("AlignPosition", hrp)
-                        alignPos.Mode = Enum.PositionAlignmentMode.OneAttachment
-                        alignPos.Attachment0 = att
-                        alignPos.MaxForce = math.huge
-                        alignPos.Responsiveness = 500
-                        
-                        bg = Instance.new("BodyGyro", hrp)
-                        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-                        bg.P = 10000
+                        char:PivotTo(waypoint)
                     end
-
-                    alignPos.Position = target.Position
-                    -- Наклон 90 градусов (лежа лицом вниз)
-                    bg.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
-                    
-                    if (hrp.Position - target.Position).Magnitude < 1.5 then
-                        alignPos.Position = hrp.Position
-                        
-                        if firetouchinterest then
-                            firetouchinterest(hrp, target, 0)
-                            firetouchinterest(hrp, target, 1)
-                        end
-                        task.wait(0.1)
-                    end
-                else
-                    if alignPos then alignPos:Destroy(); alignPos = nil end
-                    if bg then bg:Destroy(); bg = nil end
-                    if att then att:Destroy(); att = nil end
-                    
-                    hum.PlatformStand = false
-                    hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-                    for _, v in pairs(char:GetDescendants()) do
-                        if v:IsA("BasePart") then v.CanCollide = true end
-                    end
-                end
-            end
-        else
-            if alignPos then alignPos:Destroy(); alignPos = nil end
-            if bg then bg:Destroy(); bg = nil end
-            if att then att:Destroy(); att = nil end
-            local char = LocalPlayer.Character
-            if char then
-                if char:FindFirstChildOfClass("Humanoid") then 
-                    char.Humanoid.PlatformStand = false 
-                    char.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                end
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = true end
                 end
             end
         end
