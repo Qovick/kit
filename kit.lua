@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Invisible Platform Farm)
+-- Qovick Hub :: Ultimate Custom UI (Direct Anchored Under-Map Fly)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Invisible Platform Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Direct Anchored Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,142 +695,92 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (INVISIBLE PLATFORM)
+-- АВТОФАРМ (DIRECT ANCHORED UNDER-MAP)
 -- ==========================================
-local platform = nil
-local weld = nil
-local coinCache = {}
-local lastScan = 0
 local UNDER_Y = -50
-
-local function forceNoClip()
-    local char = LocalPlayer.Character
-    if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end
-end
+local currentTween = nil
 
 local function findCoins()
     local coins = {}
-    local container = Workspace:FindFirstChild("CoinContainer") or Workspace:FindFirstChild("Coins")
-    if not container then return {} end
-    
-    for _, obj in pairs(container:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            table.insert(coins, obj)
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("coin") or obj.Name:lower():find("candy") then
+            -- Проверка, что это не часть игрока
+            if not Players:GetPlayerFromCharacter(obj.Parent) then
+                table.insert(coins, obj)
+            end
         end
     end
     return coins
 end
 
-local function startFarm()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    
-    platform = Instance.new("Part")
-    platform.Name = "QovickPlatform"
-    platform.Size = Vector3.new(5, 5, 5)
-    platform.Transparency = 1
-    platform.CanCollide = false
-    platform.Anchored = true
-    platform.Parent = Workspace
-    
-    platform.CFrame = CFrame.new(hrp.Position.X, UNDER_Y, hrp.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
-    
-    weld = Instance.new("WeldConstraint")
-    weld.Part0 = platform
-    weld.Part1 = hrp
-    weld.Parent = platform
-    
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then hum.PlatformStand = true end
-    
-    forceNoClip()
-end
-
-local function stopFarm()
-    if platform then platform:Destroy(); platform = nil end
-    if weld then weld:Destroy(); weld = nil end
-    local char = LocalPlayer.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.PlatformStand = false end
-        if hrp then hrp.Anchored = false end
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
-        end
-    end
-end
-
 task.spawn(function()
     while true do
         if State.AutoFarm then
-            Workspace.FallenPartsDestroyHeight = 0/0
-            if not platform then startFarm() end
-            
-            if tick() - lastScan > 0.8 then coinCache = findCoins(); lastScan = tick() end
-        else 
-            coinCache = {}; lastScan = 0 
-            if platform then stopFarm() end
-        end
-        task.wait(0.5)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if State.AutoFarm and platform then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                
+                -- Жесткий якорь, чтобы не упасть
+                hrp.Anchored = true
+                if hum then hum.PlatformStand = true end
+                
+                -- Ищем ближайшую монету
                 local target = nil
                 local shortestDist = math.huge
-                for _, coin in pairs(coinCache) do
-                    if coin and coin.Parent then
-                        local dist = (platform.Position - coin.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            target = coin
-                        end
+                local coins = findCoins()
+                for _, coin in pairs(coins) do
+                    local dist = (hrp.Position - coin.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        target = coin
                     end
                 end
                 
                 if target then
-                    -- Полёт под полом
-                    local underCF = CFrame.new(target.Position.X, UNDER_Y, target.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
-                    local tween1 = TweenService:Create(platform, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {CFrame = underCF})
-                    tween1:Play()
-                    tween1.Completed:Wait()
+                    -- 1. Летим к координатам монеты под полом (лежа)
+                    local startPos = hrp.Position
+                    local endPos = Vector3.new(target.Position.X, UNDER_Y, target.Position.Z)
+                    local dist = (startPos - endPos).Magnitude
+                    local time = dist / (State.TweenSpeed or 50)
                     
-                    -- Выныриваем
-                    local coinCF = target.CFrame * CFrame.Angles(math.rad(90), 0, 0)
-                    local tween2 = TweenService:Create(platform, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {CFrame = coinCF})
-                    tween2:Play()
-                    tween2.Completed:Wait()
-                    
-                    -- Собираем
-                    if firetouchinterest then
-                        firetouchinterest(char.HumanoidRootPart, target, 0)
-                        firetouchinterest(char.HumanoidRootPart, target, 1)
+                    local startTime = tick()
+                    while tick() - startTime < time and State.AutoFarm do
+                        local alpha = (tick() - startTime) / time
+                        if alpha > 1 then alpha = 1 end
+                        local currentPos = startPos:Lerp(endPos, alpha)
+                        hrp.CFrame = CFrame.new(currentPos) * CFrame.Angles(math.rad(90), 0, 0)
+                        task.wait(0.02)
                     end
                     
-                    -- Обратно под пол
-                    local tween3 = TweenService:Create(platform, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {CFrame = underCF})
-                    tween3:Play()
-                    tween3.Completed:Wait()
+                    -- 2. Выныриваем наверх к монете
+                    hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
+                    task.wait(0.1)
                     
-                    -- Удаляем собранную монету из кэша
-                    for i, c in pairs(coinCache) do if c == target then table.remove(coinCache, i); break end end
+                    -- 3. Собираем
+                    if firetouchinterest then
+                        firetouchinterest(hrp, target, 0)
+                        firetouchinterest(hrp, target, 1)
+                    end
+                    task.wait(0.1)
+                    
+                    -- 4. Уходим обратно под пол
+                    hrp.CFrame = CFrame.new(target.Position.X, UNDER_Y, target.Position.Z) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.1)
                 else
                     task.wait(0.5)
                 end
             end
+        else
+            local char = LocalPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChild("Humanoid")
+                if hrp then hrp.Anchored = false end
+                if hum then hum.PlatformStand = false end
+            end
+            task.wait(0.5)
         end
-        task.wait(0.1)
     end
 end)
 
