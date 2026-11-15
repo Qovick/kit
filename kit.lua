@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Fixed Silent Aim)
+-- Qovick Hub :: Ultimate Custom UI (Custom Silent Aim)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -326,7 +326,7 @@ local State = {
 }
 
 local Sheriff = QovickUI:CreateTab("Sheriff")
-Sheriff:CreateToggle("Silent Aim (Murderer)", false, function(v) State.SilentAim = v end)
+Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) State.SilentAim = v end)
 Sheriff:CreateToggle("Auto Shoot", false, function(v) State.AutoShoot = v end)
 Sheriff:CreateSlider("Aimbot FOV", 10, 800, 120, function(v) State.FOVSize = v end)
 Sheriff:CreateToggle("Auto TP to Dropped Gun", false, function(v) State.AutoTPGun = v end)
@@ -863,57 +863,64 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- UNIVERSAL SILENT AIM (FIXED HOOKS)
+-- CUSTOM SILENT AIM (FROM SAM)
 -- ==========================================
-local function getMurderer()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local hasKnife = (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (p.Character:FindFirstChild("Knife"))
-            if hasKnife and p.Character:FindFirstChild("HumanoidRootPart") then
-                return p.Character.HumanoidRootPart
-            end
-        end
-    end
-    return nil
-end
+local SilentAim = false
+local FOV_CIRCLE = Drawing.new("Circle")
+FOV_CIRCLE.Visible = false
+FOV_CIRCLE.Filled = false
+FOV_CIRCLE.Thickness = 1
+FOV_CIRCLE.Transparency = 1
+FOV_CIRCLE.Color = Color3.new(0, 1, 0)
+FOV_CIRCLE.Radius = 130
+FOV_CIRCLE.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-pcall(function()
-    local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if State.SilentAim and not checkcaller() then
-            local target = getMurderer()
-            if target then
-                if method == "FindPartOnRayWithIgnoreList" then
-                    local args = {...}
-                    if typeof(args[2]) == "Ray" then
-                        args[2] = Ray.new(args[2].Origin, (target.Position - args[2].Origin).Unit * 1000)
-                        return oldNamecall(self, unpack(args))
-                    end
-                elseif method == "FindPartOnRayWithWhitelist" then
-                    local args = {...}
-                    if typeof(args[2]) == "Ray" then
-                        args[2] = Ray.new(args[2].Origin, (target.Position - args[2].Origin).Unit * 1000)
-                        return oldNamecall(self, unpack(args))
-                    end
-                elseif method == "FindPartOnRay" then
-                    local args = {...}
-                    if typeof(args[2]) == "Ray" then
-                        args[2] = Ray.new(args[2].Origin, (target.Position - args[2].Origin).Unit * 1000)
-                        return oldNamecall(self, unpack(args))
-                    end
-                elseif method == "Raycast" then
-                    local args = {...}
-                    if typeof(args[2]) == "Vector3" then
-                        args[3] = (target.Position - args[2]).Unit * 1000
-                        return oldNamecall(self, unpack(args))
+local Options = { Torso = "HumanoidRootPart", Head = "Head" }
+local DontShootThesePeople = {"AimLockPsycho", "JakeTheMiddleMan"}
+local Prediction = 25
+
+-- Sync UI state with internal variable
+Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) 
+    SilentAim = v 
+end)
+
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, Index)
+    if self == Mouse and (Index == "Hit") then 
+        if SilentAim then
+            local Distance = 9e9
+            local Target = nil
+            for _, v in pairs(Players:GetPlayers()) do 
+                if not table.find(DontShootThesePeople, v.Name) then
+                    if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") and v.Character:FindFirstChild("Humanoid").Health > 0 then
+                        local Enemy = v.Character    
+                        local CastingFrom = CFrame.new(Camera.CFrame.Position, Enemy[Options.Torso].CFrame.Position) * CFrame.new(0, 0, -4)
+                        local RayCast = Ray.new(CastingFrom.Position, CastingFrom.LookVector * 9000)
+                        local World, ToSpace = Workspace:FindPartOnRayWithIgnoreList(RayCast, {LocalPlayer.Character:FindFirstChild("Head")})
+                        local RootWorld = (Enemy[Options.Torso].CFrame.Position - ToSpace).magnitude
+                        if RootWorld < 4 then        
+                            local RootPartPosition, Visible = Camera:WorldToScreenPoint(Enemy[Options.Torso].Position)
+                            if Visible then
+                                local Real_Magnitude = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(RootPartPosition.X, RootPartPosition.Y)).Magnitude
+                                if Real_Magnitude < Distance and Real_Magnitude < FOV_CIRCLE.Radius then
+                                    Distance = Real_Magnitude
+                                    Target = Enemy
+                                end
+                            end
+                        end
                     end
                 end
             end
+
+            if Target ~= nil and Target[Options.Torso] and Target:FindFirstChild("Humanoid").Health > 0 then
+                local ShootThis = Target[Options.Torso]
+                local Predicted_Position = ShootThis.CFrame + (ShootThis.Velocity * Prediction + Vector3.new(0,-.5,0))
+                return Predicted_Position
+            end
         end
-        return oldNamecall(self, ...)
-    end))
-end)
+    end
+    return oldIndex(self, Index)
+end))
 
 -- AUTO SHOOT
 task.spawn(function()
@@ -921,10 +928,7 @@ task.spawn(function()
         if State.AutoShoot then
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local murderer = getMurderer()
-                if murderer then
-                    pcall(function() mouse1click() end)
-                end
+                pcall(function() mouse1click() end)
             end
         end
     end
