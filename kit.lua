@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Wait for Coins Farm)
+-- Qovick Hub :: Ultimate Custom UI (Under-Map Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Wait for Coins Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Under-Map AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,11 +695,12 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (WAIT FOR COINS)
+-- АВТОФАРМ (UNDER-MAP SMART)
 -- ==========================================
 local coinCache = {}
 local lastScan = 0
 local currentTween = nil
+local UNDER_Y = -50
 
 local function forceNoClip()
     local char = LocalPlayer.Character
@@ -730,12 +731,18 @@ local function collectCoin(coin)
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return false end
 
+    -- Выныриваем к монете
     root.CFrame = CFrame.new(coin.Position + Vector3.new(0, 2, 0))
     task.wait(0.05)
+    
     if firetouchinterest then
         firetouchinterest(root, coin, 0)
         firetouchinterest(root, coin, 1)
     end
+    
+    -- Сразу уходим под пол
+    root.CFrame = CFrame.new(coin.Position.X, UNDER_Y, coin.Position.Z)
+    
     local cd = coin:FindFirstChildOfClass("ClickDetector")
     if cd and fireclickdetector then fireclickdetector(cd) end
     local prompt = coin:FindFirstChildOfClass("ProximityPrompt") or (coin.Parent and coin.Parent:FindFirstChildOfClass("ProximityPrompt"))
@@ -744,20 +751,22 @@ local function collectCoin(coin)
     return not coin.Parent
 end
 
-local function moveToPosition(targetPos)
+local function moveToPositionUnderMap(targetPos)
     local char = LocalPlayer.Character
     if not char then return false end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return false end
 
     if currentTween then currentTween:Cancel(); currentTween = nil end
-    local dist = (root.Position - targetPos).Magnitude
+    
+    local underTarget = Vector3.new(targetPos.X, UNDER_Y, targetPos.Z)
+    local dist = (root.Position - underTarget).Magnitude
     if dist < 0.5 then return true end
 
     local speed = State.TweenSpeed or 30
-    local duration = math.clamp(dist / speed, 0.2, 3.0)
+    local duration = math.clamp(dist / speed, 0.1, 1.5)
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(underTarget)})
     currentTween = tween
     local finished = false
     tween.Completed:Connect(function() finished = true; currentTween = nil end)
@@ -775,6 +784,7 @@ end
 task.spawn(function()
     while true do
         if State.AutoFarm then
+            Workspace.FallenPartsDestroyHeight = 0/0
             if tick() - lastScan > 0.8 then coinCache = findCoins(); lastScan = tick() end
         else coinCache = {}; lastScan = 0 end
         task.wait(0.5)
@@ -789,6 +799,11 @@ task.spawn(function()
                 local root = char.HumanoidRootPart
                 forceNoClip()
                 
+                -- Если упал слишком низко, телепортируем на уровень UNDER_Y
+                if root.Position.Y < UNDER_Y - 50 then
+                    root.CFrame = CFrame.new(root.Position.X, UNDER_Y, root.Position.Z)
+                end
+                
                 if #coinCache > 0 then
                     local nearest = nil
                     local minDist = math.huge
@@ -800,8 +815,9 @@ task.spawn(function()
                     end
                     
                     if nearest then
-                        local safePos = nearest.Position + Vector3.new(0, 3, 0)
-                        moveToPosition(safePos)
+                        -- Летим под полом к X/Z монеты
+                        moveToPositionUnderMap(nearest.Position)
+                        -- Выныриваем, собираем, уходим
                         collectCoin(nearest)
                         for i, c in pairs(coinCache) do if c == nearest then table.remove(coinCache, i); break end end
                         task.wait(0.1)
