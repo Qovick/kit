@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Unanchored Touch Farm)
+-- Qovick Hub :: Ultimate Custom UI (Forced All-Parts Touch)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -577,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (UNANCHORED TOUCH)
+-- АВТОФАРМ (UNANCHORED + ALL PARTS TOUCH)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -587,7 +587,6 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 
-                -- Бессмертие
                 if hum then
                     hum.MaxHealth = math.huge
                     hum.Health = math.huge
@@ -598,13 +597,11 @@ task.spawn(function()
                     ff.Visible = false
                 end
                 
-                -- Отключаем смерть под картой
                 Workspace.FallenPartsDestroyHeight = 0/0
                 
                 hrp.Anchored = true
                 if hum then hum.PlatformStand = true end
                 
-                -- Поиск монеты
                 local target = nil
                 local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -620,37 +617,51 @@ task.spawn(function()
                 end
                 
                 if target then
-                    -- 1. Уходим под пол
                     local underPos = Vector3.new(target.Position.X, -50, target.Position.Z)
                     hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.05)
                     
-                    -- 2. Выныриваем к монете (СНИМАЕМ ЯКОРЬ, ЧТОБЫ СЕРВЕР ЗАСЧИТАЛ)
+                    -- Unanchor to force touch
                     hrp.Anchored = false
                     hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
-                    task.wait(0.05)
+                    task.wait(0.1)
                     
-                    -- 3. Собираем (все способы + все части тела)
-                    for _, part in pairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            pcall(function()
-                                firetouchinterest(part, target, 0)
-                                firetouchinterest(part, target, 1)
-                            end)
-                        end
+                    -- Touch all parts of the target (if model)
+                    if target:IsA("BasePart") then
+                        pcall(function()
+                            for _, part in pairs(char:GetDescendants()) do
+                                if part:IsA("BasePart") then
+                                    firetouchinterest(part, target, 0)
+                                    firetouchinterest(part, target, 1)
+                                end
+                            end
+                        end)
+                    else
+                        pcall(function()
+                            for _, part in pairs(target:GetDescendants()) do
+                                if part:IsA("BasePart") then
+                                    for _, p2 in pairs(char:GetDescendants()) do
+                                        if p2:IsA("BasePart") then
+                                            firetouchinterest(p2, part, 0)
+                                            firetouchinterest(p2, part, 1)
+                                        end
+                                    end
+                                end
+                            end
+                        end)
                     end
                     
+                    -- Click & Prompt
                     local cd = target:FindFirstChildOfClass("ClickDetector")
                     if cd and fireclickdetector then pcall(function() fireclickdetector(cd) end) end
-                    
-                    local prompt = target:FindFirstChildOfClass("ProximityPrompt") 
-                        or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
-                        or (target.Parent and target.Parent.Parent and target.Parent.Parent:FindFirstChildOfClass("ProximityPrompt"))
+                    local prompt = target:FindFirstChildOfClass("ProximityPrompt") or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
                     if prompt and fireproximityprompt then pcall(function() fireproximityprompt(prompt) end) end
                     
-                    task.wait(0.2) -- Даем серверу время
+                    -- Fallback: Mouse Click
+                    pcall(function() mouse1click() end)
                     
-                    -- 4. Якорим и уходим под пол
+                    task.wait(0.2)
+                    
                     hrp.Anchored = true
                     hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
                     task.wait(0.05)
