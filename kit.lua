@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Under-Floor God Farm)
+-- Qovick Hub :: Ultimate Custom UI (God Farm + Forced Collect)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -577,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (UNDER-FLOOR GOD MODE)
+-- АВТОФАРМ (UNDER-FLOOR + FORCED COLLECT)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -627,18 +627,22 @@ task.spawn(function()
                     
                     -- 2. Выныриваем к монете
                     hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
-                    task.wait(0.05)
+                    task.wait(0.15) -- Даем серверу время
                     
-                    -- 3. Собираем
+                    -- 3. Собираем (все способы)
                     if firetouchinterest then
                         pcall(function()
                             firetouchinterest(hrp, target, 0)
                             firetouchinterest(hrp, target, 1)
                         end)
                     end
+                    
                     local cd = target:FindFirstChildOfClass("ClickDetector")
                     if cd and fireclickdetector then pcall(function() fireclickdetector(cd) end) end
-                    local prompt = target:FindFirstChildOfClass("ProximityPrompt") or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
+                    
+                    local prompt = target:FindFirstChildOfClass("ProximityPrompt") 
+                        or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
+                        or (target.Parent and target.Parent.Parent and target.Parent.Parent:FindFirstChildOfClass("ProximityPrompt"))
                     if prompt and fireproximityprompt then pcall(function() fireproximityprompt(prompt) end) end
                     
                     task.wait(0.1)
