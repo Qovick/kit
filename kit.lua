@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Forced All-Parts Touch)
+-- Qovick Hub :: Ultimate Custom UI (No AutoClick Farm)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -577,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (UNANCHORED + ALL PARTS TOUCH)
+-- АВТОФАРМ (NO CLICK, JUST TOUCH)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -656,9 +656,6 @@ task.spawn(function()
                     if cd and fireclickdetector then pcall(function() fireclickdetector(cd) end) end
                     local prompt = target:FindFirstChildOfClass("ProximityPrompt") or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
                     if prompt and fireproximityprompt then pcall(function() fireproximityprompt(prompt) end) end
-                    
-                    -- Fallback: Mouse Click
-                    pcall(function() mouse1click() end)
                     
                     task.wait(0.2)
                     
