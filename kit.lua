@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (SkidFling Added)
+-- Qovick Hub :: Ultimate Custom UI (Laying Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -420,7 +420,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Fixed AutoFarm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Laying AutoFarm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Fly Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -695,7 +695,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- ВОССТАНОВЛЕННЫЙ АВТОФАРМ
+-- АВТОФАРМ (LAYING DOWN)
 -- ==========================================
 task.spawn(function()
     local alignPos, alignOri, att
@@ -728,6 +728,8 @@ task.spawn(function()
                     hum.MaxHealth = math.huge
                     hum.Health = math.huge
                     hum.PlatformStand = true
+                    hum:ChangeState(Enum.HumanoidStateType.Physics) -- Отключаем попытки встать
+                    
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = false end
                     end
@@ -753,11 +755,12 @@ task.spawn(function()
                     end
 
                     alignPos.Position = target.Position
-                    alignOri.CFrame = CFrame.new(target.Position)
+                    -- Наклоняем персонажа на 90 градусов (лежа)
+                    alignOri.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
                     
                     if (hrp.Position - target.Position).Magnitude < 1.5 then
                         alignPos.Position = hrp.Position
-                        alignOri.CFrame = hrp.CFrame
+                        alignOri.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(math.rad(90), 0, 0)
                         
                         if firetouchinterest then
                             firetouchinterest(hrp, target, 0)
@@ -771,6 +774,7 @@ task.spawn(function()
                     if att then att:Destroy(); att = nil end
                     
                     hum.PlatformStand = false
+                    hum:ChangeState(Enum.HumanoidStateType.GettingUp)
                     for _, v in pairs(char:GetDescendants()) do
                         if v:IsA("BasePart") then v.CanCollide = true end
                     end
@@ -782,7 +786,10 @@ task.spawn(function()
             if att then att:Destroy(); att = nil end
             local char = LocalPlayer.Character
             if char then
-                if char:FindFirstChildOfClass("Humanoid") then char.Humanoid.PlatformStand = false end
+                if char:FindFirstChildOfClass("Humanoid") then 
+                    char.Humanoid.PlatformStand = false 
+                    char.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then v.CanCollide = true end
                 end
