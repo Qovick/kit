@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Custom Silent Aim)
+-- Qovick Hub :: Ultimate Custom UI (Fixed Buttons & Farm)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -746,9 +746,9 @@ task.spawn(function()
         rt.positionChangeConnections[coin] = connection
     end
 
-    local function populateOctree()
+    local function populateOctree(container)
         rt.octree:ClearAllNodes()
-        for _, descendant in pairs(rt.coinContainer:GetDescendants()) do
+        for _, descendant in pairs(container:GetDescendants()) do
             if descendant:IsA("TouchTransmitter") then
                 local parentCoin = descendant.Parent
                 if not isCoinTouched(parentCoin) then
@@ -786,48 +786,46 @@ task.spawn(function()
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             if char and hum then
-                local map = nil
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("Model") and v.Name == "Base" then
-                        map = v.Parent
+                -- Ищем CoinContainer по всему Workspace, так как карта может называться иначе
+                local coinContainer = nil
+                for _, v in pairs(Workspace:GetDescendants()) do
+                    if v.Name == "CoinContainer" then
+                        coinContainer = v
                         break
                     end
                 end
                 
-                if map then
-                    rt.coinContainer = map:FindFirstChild("CoinContainer")
-                    if rt.coinContainer then
-                        populateOctree()
-                        local waypoint = char:GetPivot()
-                        
-                        while State.AutoFarm do
-                            local gui = LocalPlayer.PlayerGui:FindFirstChild("MainGUI")
-                            if gui and gui:FindFirstChild("Game") and gui.Game:FindFirstChild("CoinBags") then
-                                local bag = gui.Game.CoinBags:FindFirstChild("Container")
-                                if bag and bag:FindFirstChild("SnowToken") and bag.SnowToken:FindFirstChild("FullBagIcon") and bag.SnowToken.FullBagIcon.Visible then
-                                    break
-                                end
-                            end
-
-                            local nearestNode = rt.octree:GetNearest(char.PrimaryPart.Position, 200, 1)[1]
-                            if nearestNode then
-                                local closestCoin = nearestNode.Object
-                                if not isCoinTouched(closestCoin) then
-                                    local closestCoinPosition = closestCoin.Position
-                                    local distance = (char.PrimaryPart.Position - closestCoinPosition).Magnitude
-                                    local duration = distance / rt.walkspeed
-                                    
-                                    moveToPositionSlowly(closestCoinPosition, duration)
-                                    markCoinAsTouched(closestCoin)
-                                    task.wait(0.2)
-                                end
-                            else
-                                task.wait(1)
+                if coinContainer then
+                    populateOctree(coinContainer)
+                    local waypoint = char:GetPivot()
+                    
+                    while State.AutoFarm do
+                        local gui = LocalPlayer.PlayerGui:FindFirstChild("MainGUI")
+                        if gui and gui:FindFirstChild("Game") and gui.Game:FindFirstChild("CoinBags") then
+                            local bag = gui.Game.CoinBags:FindFirstChild("Container")
+                            if bag and bag:FindFirstChild("SnowToken") and bag.SnowToken:FindFirstChild("FullBagIcon") and bag.SnowToken.FullBagIcon.Visible then
+                                break
                             end
                         end
-                        
-                        char:PivotTo(waypoint)
+
+                        local nearestNode = rt.octree:GetNearest(char.PrimaryPart.Position, 200, 1)[1]
+                        if nearestNode then
+                            local closestCoin = nearestNode.Object
+                            if not isCoinTouched(closestCoin) then
+                                local closestCoinPosition = closestCoin.Position
+                                local distance = (char.PrimaryPart.Position - closestCoinPosition).Magnitude
+                                local duration = distance / rt.walkspeed
+                                
+                                moveToPositionSlowly(closestCoinPosition, duration)
+                                markCoinAsTouched(closestCoin)
+                                task.wait(0.2)
+                            end
+                        else
+                            task.wait(1)
+                        end
                     end
+                    
+                    char:PivotTo(waypoint)
                 end
             end
         end
@@ -865,7 +863,6 @@ end)
 -- ==========================================
 -- CUSTOM SILENT AIM (FROM SAM)
 -- ==========================================
-local SilentAim = false
 local FOV_CIRCLE = Drawing.new("Circle")
 FOV_CIRCLE.Visible = false
 FOV_CIRCLE.Filled = false
@@ -879,15 +876,10 @@ local Options = { Torso = "HumanoidRootPart", Head = "Head" }
 local DontShootThesePeople = {"AimLockPsycho", "JakeTheMiddleMan"}
 local Prediction = 25
 
--- Sync UI state with internal variable
-Sheriff:CreateToggle("Silent Aim (Custom)", false, function(v) 
-    SilentAim = v 
-end)
-
 local oldIndex
 oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, Index)
     if self == Mouse and (Index == "Hit") then 
-        if SilentAim then
+        if State.SilentAim then
             local Distance = 9e9
             local Target = nil
             for _, v in pairs(Players:GetPlayers()) do 
