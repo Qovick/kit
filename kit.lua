@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Octree Farm)
+-- Qovick Hub :: Ultimate Custom UI (True Silent Aim)
 local QovickUI = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -863,7 +863,7 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- TRUE SILENT AIM (SAFE HOOK)
+-- UNIVERSAL SILENT AIM (HOOKS)
 -- ==========================================
 local function getMurderer()
     for _, p in pairs(Players:GetPlayers()) do
@@ -878,35 +878,58 @@ local function getMurderer()
 end
 
 pcall(function()
-    local mt = getrawmetatable(game)
-    local oldNamecall = mt.__namecall
-    setreadonly(mt, false)
-    mt.__namecall = newcclosure(function(self, ...)
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         local method = getnamecallmethod()
-        if State.SilentAim and method == "FireServer" then
-            local murderer = getMurderer()
-            if murderer then
-                if self.Name == "Shoot" or self.Name == "Fire" or (self.Parent and (self.Parent.Name == "Gun" or self.Parent.Name == "Sheriff")) then
+        if State.SilentAim and not checkcaller() then
+            local target = getMurderer()
+            if target then
+                if method == "FindPartOnRayWithIgnoreList" then
                     local args = {...}
-                    local newArgs = {}
-                    for i, v in pairs(args) do
-                        if typeof(v) == "Vector3" then
-                            newArgs[i] = murderer.Position
-                        elseif typeof(v) == "CFrame" then
-                            newArgs[i] = CFrame.new(murderer.Position)
-                        elseif typeof(v) == "Instance" and v:IsA("Model") then
-                            newArgs[i] = murderer.Parent
-                        else
-                            newArgs[i] = v
-                        end
+                    if typeof(args[2]) == "Ray" then
+                        args[2] = Ray.new(args[2].Origin, (target.Position - args[2].Origin).Unit * 1000)
+                        return oldNamecall(self, unpack(args))
                     end
-                    return oldNamecall(self, unpack(newArgs))
+                elseif method == "FindPartOnRayWithWhitelist" then
+                    local args = {...}
+                    if typeof(args[2]) == "Ray" then
+                        args[2] = Ray.new(args[2].Origin, (target.Position - args[2].Origin).Unit * 1000)
+                        return oldNamecall(self, unpack(args))
+                    end
+                elseif method == "FindPartOnRay" then
+                    local args = {...}
+                    if typeof(args[2]) == "Ray" then
+                        args[2] = Ray.new(args[2].Origin, (target.Position - args[2].Origin).Unit * 1000)
+                        return oldNamecall(self, unpack(args))
+                    end
+                elseif method == "Raycast" then
+                    local args = {...}
+                    if typeof(args[2]) == "Vector3" then
+                        args[3] = (target.Position - args[2]).Unit * 1000
+                        return oldNamecall(self, unpack(args))
+                    end
                 end
             end
         end
         return oldNamecall(self, ...)
-    end)
-    setreadonly(mt, true)
+    end))
+
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if State.SilentAim and not checkcaller() and self == Mouse then
+            local target = getMurderer()
+            if target then
+                if key == "Target" or key == "target" then
+                    return target
+                elseif key == "Hit" or key == "hit" then
+                    return target.CFrame
+                elseif key == "UnitRay" then
+                    return Ray.new(self.Origin, (target.Position - self.Origin).Unit)
+                end
+            end
+        end
+        return oldIndex(self, key)
+    end))
 end)
 
 -- AUTO SHOOT
