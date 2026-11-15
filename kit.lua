@@ -1,4 +1,4 @@
--- Qovick Hub :: Ultimate Custom UI (Prompt Farm)
+-- Qovick Hub :: Ultimate Custom UI (Under-Floor God Farm)
 print("[Qovick] Загрузка...")
 
 local QovickUI = {}
@@ -422,7 +422,7 @@ Tp:CreateButton("Teleport to Map", function()
 end)
 
 local Farm = QovickUI:CreateTab("Farm")
-Farm:CreateToggle("Prompt Teleport Farm", false, function(v) State.AutoFarm = v end)
+Farm:CreateToggle("Under-Floor God Farm", false, function(v) State.AutoFarm = v end)
 Farm:CreateSlider("Farm Speed", 10, 100, 50, function(v) State.TweenSpeed = v end)
 Farm:CreateToggle("Death on Full Bag", false, function(v) State.ResetOnFull = v end)
 Farm:CreateToggle("Kill All on Full Bag (Murderer)", false, function(v) State.KillAllOnFull = v end)
@@ -577,7 +577,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ==========================================
--- АВТОФАРМ (PROMPT COLLECT)
+-- АВТОФАРМ (UNDER-FLOOR GOD MODE)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -587,9 +587,24 @@ task.spawn(function()
                 local hrp = char.HumanoidRootPart
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 
+                -- Бессмертие
+                if hum then
+                    hum.MaxHealth = math.huge
+                    hum.Health = math.huge
+                end
+                if not char:FindFirstChild("QovickGod") then
+                    local ff = Instance.new("ForceField", char)
+                    ff.Name = "QovickGod"
+                    ff.Visible = false
+                end
+                
+                -- Отключаем смерть под картой
+                Workspace.FallenPartsDestroyHeight = 0/0
+                
                 hrp.Anchored = true
                 if hum then hum.PlatformStand = true end
                 
+                -- Поиск монеты
                 local target = nil
                 local shortestDist = math.huge
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -605,27 +620,32 @@ task.spawn(function()
                 end
                 
                 if target then
-                    hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
-                    task.wait(0.1)
+                    -- 1. Уходим под пол
+                    local underPos = Vector3.new(target.Position.X, -50, target.Position.Z)
+                    hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
+                    task.wait(0.05)
                     
+                    -- 2. Выныриваем к монете
+                    hrp.CFrame = CFrame.new(target.Position) * CFrame.Angles(math.rad(90), 0, 0)
+                    task.wait(0.05)
+                    
+                    -- 3. Собираем
                     if firetouchinterest then
                         pcall(function()
                             firetouchinterest(hrp, target, 0)
                             firetouchinterest(hrp, target, 1)
                         end)
                     end
-                    
                     local cd = target:FindFirstChildOfClass("ClickDetector")
-                    if cd and fireclickdetector then
-                        pcall(function() fireclickdetector(cd) end)
-                    end
-                    
+                    if cd and fireclickdetector then pcall(function() fireclickdetector(cd) end) end
                     local prompt = target:FindFirstChildOfClass("ProximityPrompt") or (target.Parent and target.Parent:FindFirstChildOfClass("ProximityPrompt"))
-                    if prompt and fireproximityprompt then
-                        pcall(function() fireproximityprompt(prompt) end)
-                    end
+                    if prompt and fireproximityprompt then pcall(function() fireproximityprompt(prompt) end) end
                     
-                    task.wait(0.3) -- Пауза, чтобы сервер засчитал
+                    task.wait(0.1)
+                    
+                    -- 4. Обратно под пол
+                    hrp.CFrame = CFrame.new(underPos) * CFrame.Angles(math.rad(90), 0, 0)
+                    task.wait(0.05)
                 else
                     task.wait(0.5)
                 end
@@ -636,7 +656,12 @@ task.spawn(function()
                 local hrp = char:FindFirstChild("HumanoidRootPart")
                 local hum = char:FindFirstChild("Humanoid")
                 if hrp then hrp.Anchored = false end
-                if hum then hum.PlatformStand = false end
+                if hum then 
+                    hum.PlatformStand = false 
+                    hum.MaxHealth = 100
+                    hum.Health = 100
+                end
+                if char:FindFirstChild("QovickGod") then char.QovickGod:Destroy() end
             end
             task.wait(0.5)
         end
