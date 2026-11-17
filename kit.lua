@@ -1,7 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub — единый скрипт
+--  QovickHub — единый скрипт (Исправленный)
 --  База: MonoUI (robloxscripts.com/user/Fleece). Переработано под QovickHub.
---  Roblox-экзекутор. Используй на свой риск.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -631,6 +630,25 @@ function QovickHub.new(cfg)
     self:_buildTour()
     self:_buildBadge()
     return self
+end
+
+function QovickHub:_buildPages()
+    -- Создаем пустые страницы для всех вкладок, кроме "Modules"
+    local function makePage(name)
+        local f = new("Frame", { Size = UDim2.new(1, -SIDE_W - 16, 1, -TOPBAR_H - 27),
+            Position = UDim2.fromOffset(SIDE_W, TOPBAR_H + 13),
+            BackgroundTransparency = 1, Visible = false, ZIndex = 3, Parent = self.root })
+        text({ Text = name, Font = FONT_BOLD, TextSize = 24, TextColor3 = T.text,
+            AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(200, 40), TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 4, Parent = f })
+        return f
+    end
+    self.pagePlayers = makePage("Players")
+    self.pageServer = makePage("Server")
+    self.pageConfigs = makePage("Configs")
+    self.pageSettings = makePage("Settings")
+    self.pageCredits = makePage("Credits")
 end
 
 function QovickHub:_bindInput()
@@ -2105,10 +2123,6 @@ function QovickHub:_setting(cfg, body)
         return
     end
 end
-
--- Заглушка: страницы создаются в QovickHub.new через _buildPages.
--- Здесь оставляем пустой метод, чтобы вызов не падал.
-function QovickHub:_buildPages() end
 
 return QovickHub
 ]==]
