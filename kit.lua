@@ -1,6 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub — единый скрипт (Исправленный)
---  База: MonoUI (robloxscripts.com/user/Fleece). Переработано под QovickHub.
+--  QovickHub — единый скрипт (Исправленный v3, полный)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -23,13 +22,12 @@ if getgenv then
     end
 end
 
--- ── Иконки: Lucide + фолбэк на текстовые глифы ───────────────────────────────
+-- ── Иконки ───────────────────────────────────────────────────────────────────
 local Lucide
 pcall(function()
     Lucide = loadstring(game:HttpGet(
         "https://raw.githubusercontent.com/mstudio45/lucide-roblox-direct/refs/heads/main/source.lua"))()
 end)
-
 local GLYPHS = {
     search = "⌕", star = "★", ["ellipsis-vertical"] = "⋮", keyboard = "⌨",
     ["refresh-cw"] = "⟳", ["panels-top-left"] = "▦", ["rows-3"] = "≡",
@@ -37,7 +35,7 @@ local GLYPHS = {
     box = "▢", settings = "⚙", users = "☻", server = "⛁", file = "▤", info = "ⓘ",
 }
 
--- ── Палитра QovickHub ────────────────────────────────────────────────────────
+-- ── Палитра ──────────────────────────────────────────────────────────────────
 local T = {
     root = Color3.fromRGB(18, 20, 27), panel = Color3.fromRGB(24, 27, 36),
     panelHover = Color3.fromRGB(32, 36, 47), inset = Color3.fromRGB(21, 23, 31),
@@ -61,7 +59,6 @@ local FONT_REG, FONT, FONT_BOLD = table.unpack(FAMILIES["Builder Sans"])
 
 local MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local TEXT_SCALE = MOBILE and 1.42 or 1.15
-
 local ROW_H = MOBILE and 78 or 62
 local ROW_H_COMPACT = MOBILE and 58 or 44
 local CAT_H = MOBILE and 52 or 40
@@ -347,9 +344,6 @@ function QovickHub.new(cfg)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
     protect(self.gui); self.gui.Parent = mount
     if getgenv then getgenv().__qovick_gui = self.gui; getgenv().QovickHub = self end
-    if STATE and STATE.onCleanup then
-        local g = self.gui; STATE.onCleanup(function() pcall(function() g:Destroy() end) end)
-    end
 
     local W, H = cfg.Width or 820, cfg.Height or 520
     if MOBILE then
@@ -623,9 +617,9 @@ function QovickHub.new(cfg)
     self:_drag(top)
     self:_bindInput()
     self._sideShown = true
+    self:_buildPages()
     self:SetLayout({ side = "Left", search = "Top" }, false)
     self:_buildUISettings()
-    self:_buildPages()
     self:_buildNotifications()
     self:_buildTour()
     self:_buildBadge()
@@ -633,15 +627,14 @@ function QovickHub.new(cfg)
 end
 
 function QovickHub:_buildPages()
-    -- Создаем пустые страницы для всех вкладок, кроме "Modules"
     local function makePage(name)
-        local f = new("Frame", { Size = UDim2.new(1, -SIDE_W - 16, 1, -TOPBAR_H - 27),
-            Position = UDim2.fromOffset(SIDE_W, TOPBAR_H + 13),
-            BackgroundTransparency = 1, Visible = false, ZIndex = 3, Parent = self.root })
+        local f = new("Frame", { Size = UDim2.new(1, -self.SIDE_W - 16, 1, -self.TOPBAR_H - 27),
+            Position = UDim2.fromOffset(self.SIDE_W, self.TOPBAR_H + 13),
+            BackgroundTransparency = 1, Visible = false, ZIndex = 1, Parent = self.root })
         text({ Text = name, Font = FONT_BOLD, TextSize = 24, TextColor3 = T.text,
             AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
             Size = UDim2.fromOffset(200, 40), TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 4, Parent = f })
+            ZIndex = 2, Parent = f })
         return f
     end
     self.pagePlayers = makePage("Players")
@@ -2128,7 +2121,7 @@ return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
---  Инициализация QovickHub + меню
+--  Инициализация QovickHub + меню (Внешняя часть)
 -- ═══════════════════════════════════════════════════════════════════════════
 local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
