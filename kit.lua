@@ -1,15 +1,15 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub v1.0 — Единый скрипт (UI + Читы)
+--  QovickHub v1.0 (База: MonoUI, 2000 строк) + Читы
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
-local TweenService         = game:GetService("TweenService")
-local UserInputService     = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
-local RunService           = game:GetService("RunService")
-local Players              = game:GetService("Players")
-local GuiService           = game:GetService("GuiService")
-local TextService          = game:GetService("TextService")
+local RunService       = game:GetService("RunService")
+local Players          = game:GetService("Players")
+local GuiService       = game:GetService("GuiService")
+local TextService      = game:GetService("TextService")
 
 if getgenv and getgenv().QOVICKHUB_CLEANUP then pcall(getgenv().QOVICKHUB_CLEANUP) end
 local CONNS = {}
@@ -249,6 +249,7 @@ function QovickHub.new(cfg)
     local mount = mountPoint()
     if getgenv and getgenv().__qovick_gui then pcall(function() getgenv().__qovick_gui:Destroy() end) end
     
+    -- ИСПРАВЛЕНИЕ: Frame вместо CanvasGroup
     self.gui = new("ScreenGui", { ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
     protect(self.gui); self.gui.Parent = mount
     if getgenv then getgenv().__qovick_gui = self.gui; getgenv().QovickHub = self end
@@ -354,8 +355,8 @@ function QovickHub.new(cfg)
     new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.drawerBody })
     customScrollbar(self.drawerBody)
 
-    self.root.GroupTransparency = 1
-    if self.rootStroke then self.rootStroke.Transparency = 1 end
+    self.root.BackgroundTransparency = 0
+    if self.rootStroke then self.rootStroke.Transparency = 0 end
     task.delay(5, function() if not self._presented and not self._destroyed then self:Present() end end)
 
     self.root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -883,11 +884,11 @@ function QovickHub:_buildBadge()
 end
 
 function QovickHub:_clampToScreen(x, y, w, h) local M = 8; local space = self.gui.AbsoluteSize; local inset = GuiService:GetGuiInset(); return UDim2.fromOffset(math.clamp(math.floor(x), M, math.max(M, space.X - w - M)), math.clamp(math.floor(y), inset.Y + M, math.max(inset.Y + M, space.Y - h - M))) end
-function QovickHub:Present() if self._presented or self._destroyed then return end; self._presented = true; self.root.GroupTransparency = 1; tw(self.root, OPEN, { GroupTransparency = 0 }); if self.rootStroke then tw(self.rootStroke, OPEN, { Transparency = baseOf(self.rootStroke, "Transparency") }) end end
+function QovickHub:Present() if self._presented or self._destroyed then return end; self._presented = true; self.root.BackgroundTransparency = 0; if self.rootStroke then tw(self.rootStroke, OPEN, { Transparency = baseOf(self.rootStroke, "Transparency") }) end end
 function QovickHub:Minimize()
     if self.minimized then return end; self.minimized = true; if self.drawer.Visible then self:CloseDrawer() end
     if not self._badgeMoved then local rp, rs, bs = self.root.Position, self.root.AbsoluteSize, self.badge.AbsoluteSize; self.badge.Position = self:_clampToScreen(rp.X.Offset + math.floor(rs.X / 2) - math.floor(bs.X / 2), rp.Y.Offset + math.floor(rs.Y / 2) - math.floor(bs.Y / 2), bs.X, bs.Y) end
-    tw(self.root, WIN_FADE, { GroupTransparency = 1 }); if self.rootStroke then tw(self.rootStroke, WIN_FADE, { Transparency = 1 }) end
+    tw(self.root, WIN_FADE, { BackgroundTransparency = 1 }); if self.rootStroke then tw(self.rootStroke, WIN_FADE, { Transparency = 1 }) end
     task.delay(0.06, function() if not self.minimized then return end; self.badge.Visible = true; self:_setFade(self.badge, 1); self:_fade(self.badge, 0, WIN_FADE) end)
     task.delay(0.26, function() if not self.minimized then return end; self.root.Visible = false end)
 end
@@ -896,8 +897,7 @@ function QovickHub:Restore()
     if self.fullscreen then local space = self.gui.AbsoluteSize; local inset = GuiService:GetGuiInset(); local usableY = space.Y - inset.Y; local M = 18; self.root.Size = UDim2.fromOffset(space.X - M * 2, usableY - M * 2); self.root.Position = UDim2.fromOffset(M, inset.Y + M)
     else local bp, bs, rs = self.badge.Position, self.badge.AbsoluteSize, self.root.AbsoluteSize; self.root.Position = self:_clampToScreen(bp.X.Offset + math.floor(bs.X / 2) - math.floor(rs.X / 2), bp.Y.Offset + math.floor(bs.Y / 2) - math.floor(rs.Y / 2), rs.X, rs.Y) end
     self:_fade(self.badge, 1, WIN_FADE); task.delay(0.24, function() if self.minimized then return end; self.badge.Visible = false end)
-    self.root.Visible = true; self.root.GroupTransparency = 1; tw(self.root, WIN_FADE, { GroupTransparency = 0 })
-    if self.rootStroke then self.rootStroke.Transparency = 1; tw(self.rootStroke, WIN_FADE, { Transparency = baseOf(self.rootStroke, "Transparency") }) end
+    self.root.Visible = true; self.root.BackgroundTransparency = 0; if self.rootStroke then self.rootStroke.Transparency = 1; tw(self.rootStroke, WIN_FADE, { Transparency = baseOf(self.rootStroke, "Transparency") }) end
 end
 function QovickHub:ToggleFullscreen()
     local M = 18
@@ -910,7 +910,7 @@ function QovickHub:Destroy()
     for _, m in ipairs(self.allModules) do if not m.action and m.state then pcall(function() m:Toggle(false) end) end end
     if self._releaseWheel then pcall(self._releaseWheel) end
     local OUT = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.In); local rs = self.root.AbsoluteSize; local rx, ry = self.root.Position.X.Offset, self.root.Position.Y.Offset; local sx, sy = math.floor(rs.X * 0.9), math.floor(rs.Y * 0.9)
-    tw(self.root, OUT, { GroupTransparency = 1, Size = UDim2.fromOffset(sx, sy), Position = UDim2.fromOffset(rx + math.floor((rs.X - sx) / 2), ry + math.floor((rs.Y - sy) / 2)) })
+    tw(self.root, OUT, { BackgroundTransparency = 1, Size = UDim2.fromOffset(sx, sy), Position = UDim2.fromOffset(rx + math.floor((rs.X - sx) / 2), ry + math.floor((rs.Y - sy) / 2)) })
     if self.rootStroke then tw(self.rootStroke, OUT, { Transparency = 1 }) end; if self.badge then self:_fade(self.badge, 1, CLOSE) end
     task.delay(0.36, function() if self._releaseWheel then pcall(self._releaseWheel) end; if getgenv and getgenv().QOVICKHUB_CLEANUP then pcall(getgenv().QOVICKHUB_CLEANUP) end; if getgenv then getgenv().QOVICKHUB_CLEANUP = nil; getgenv().QovickHub = nil end; pcall(function() self.gui:Destroy() end); if getgenv then getgenv().__qovick_gui = nil end; if self.onDestroy then pcall(self.onDestroy) end end)
 end
@@ -1066,7 +1066,7 @@ return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
---  Инициализация QovickHub + Читы (ИСПРАВЛЕНО)
+--  Инициализация QovickHub + Читы
 -- ═══════════════════════════════════════════════════════════════════════════
 local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
@@ -1245,7 +1245,7 @@ local function EnableSpeed(on, val)
     end)
 end
 
--- ═══ Добавление модулей в меню (ИСПРАВЛЕНО) ═══
+-- ═══ Добавление модулей в меню ═══
 Visuals:Section("ESP")
 Visuals:Module({
     Name = "ESP Player",
