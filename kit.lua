@@ -1,23 +1,22 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub + Читы (ESP, Silent Aim, Fly, Speed)
---  Базируется на MonoUI (robloxscripts.com/user/Fleece)
+--  QovickHub v1.0 — Единый скрипт (UI + Читы)
 -- ═══════════════════════════════════════════════════════════════════════════
 
-local MONOUI_SOURCE = [==[
-local TweenService     = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local QOVICKHUB_SOURCE = [==[
+local TweenService         = game:GetService("TweenService")
+local UserInputService     = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
-local RunService       = game:GetService("RunService")
-local Players          = game:GetService("Players")
-local GuiService       = game:GetService("GuiService")
-local TextService      = game:GetService("TextService")
+local RunService           = game:GetService("RunService")
+local Players              = game:GetService("Players")
+local GuiService           = game:GetService("GuiService")
+local TextService          = game:GetService("TextService")
 
-if getgenv and getgenv().MONOUI_CLEANUP then pcall(getgenv().MONOUI_CLEANUP) end
+if getgenv and getgenv().QOVICKHUB_CLEANUP then pcall(getgenv().QOVICKHUB_CLEANUP) end
 local CONNS = {}
 local function keep(c) table.insert(CONNS, c) return c end
 local function sig(s) return { Connect = function(_, fn) return keep(s:Connect(fn)) end } end
 if getgenv then
-    getgenv().MONOUI_CLEANUP = function()
+    getgenv().QOVICKHUB_CLEANUP = function()
         for _, c in ipairs(CONNS) do pcall(function() c:Disconnect() end) end
         table.clear(CONNS)
     end
@@ -29,14 +28,14 @@ pcall(function()
 end)
 
 local T = {
-    root = Color3.fromRGB(24, 24, 24), panel = Color3.fromRGB(30, 30, 30),
-    panelHover = Color3.fromRGB(37, 37, 37), inset = Color3.fromRGB(28, 28, 28),
-    stroke = Color3.fromRGB(40, 40, 40), strokeSoft = Color3.fromRGB(34, 34, 34),
-    text = Color3.fromRGB(255, 255, 255), sub = Color3.fromRGB(150, 150, 150),
-    dim = Color3.fromRGB(108, 108, 108), faint = Color3.fromRGB(84, 84, 84),
-    descText = Color3.fromRGB(124, 124, 124), star = Color3.fromRGB(205, 205, 205),
-    onTrack = Color3.fromRGB(205, 205, 205), onKnob = Color3.fromRGB(240, 240, 240),
-    offTrack = Color3.fromRGB(52, 52, 52), offKnob = Color3.fromRGB(240, 240, 240),
+    root = Color3.fromRGB(18, 20, 27), panel = Color3.fromRGB(24, 27, 36),
+    panelHover = Color3.fromRGB(32, 36, 47), inset = Color3.fromRGB(21, 23, 31),
+    stroke = Color3.fromRGB(44, 49, 62), strokeSoft = Color3.fromRGB(36, 40, 51),
+    text = Color3.fromRGB(240, 244, 250), sub = Color3.fromRGB(168, 178, 196),
+    dim = Color3.fromRGB(116, 126, 145), faint = Color3.fromRGB(86, 94, 110),
+    descText = Color3.fromRGB(126, 136, 154), star = Color3.fromRGB(94, 234, 176),
+    onTrack = Color3.fromRGB(94, 234, 176), onKnob = Color3.fromRGB(14, 18, 24),
+    offTrack = Color3.fromRGB(54, 60, 74), offKnob = Color3.fromRGB(240, 244, 250),
 }
 
 local FAMILIES = {
@@ -50,7 +49,6 @@ local FONT_REG, FONT, FONT_BOLD = table.unpack(FAMILIES["Builder Sans"])
 
 local MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local TEXT_SCALE = MOBILE and 1.42 or 1.15
-
 local ROW_H = MOBILE and 78 or 62
 local ROW_H_COMPACT = MOBILE and 58 or 44
 local CAT_H = MOBILE and 52 or 40
@@ -77,10 +75,7 @@ local WIN_FADE = TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection
 local ANIM = { on = true }
 local BLOCKED = { on = false }
 local function tw(o, ti, p)
-    if not ANIM.on then
-        for k, v in pairs(p) do pcall(function() o[k] = v end) end
-        return nil
-    end
+    if not ANIM.on then for k, v in pairs(p) do pcall(function() o[k] = v end) end; return nil end
     local t = TweenService:Create(o, ti, p); t:Play(); return t
 end
 
@@ -177,15 +172,8 @@ local function text(props)
 end
 
 local iconCache = {}
-local function iconAsset(name)
-    local a = iconCache[name]; if a == nil then a = (Lucide and Lucide.GetAsset(name)) or false; iconCache[name] = a end
-    return a or nil
-end
-local function setIcon(im, name)
-    local a = iconAsset(name)
-    if a then im.Image = a.Url; im.ImageRectOffset = a.ImageRectOffset; im.ImageRectSize = a.ImageRectSize end
-    return im
-end
+local function iconAsset(name) local a = iconCache[name]; if a == nil then a = (Lucide and Lucide.GetAsset(name)) or false; iconCache[name] = a end; return a or nil end
+local function setIcon(im, name) local a = iconAsset(name); if a then im.Image = a.Url; im.ImageRectOffset = a.ImageRectOffset; im.ImageRectSize = a.ImageRectSize end; return im end
 local function icon(name, props)
     local p = { BackgroundTransparency = 1, ImageColor3 = T.dim, Size = UDim2.fromOffset(24, 24) }
     for k, v in pairs(props or {}) do p[k] = v end
@@ -198,10 +186,8 @@ local WHEEL_IMPULSE, SCROLL_DECAY, SCROLL_MAX_VEL = 950, 7, 9000
 local function shownOnScreen(o) local node = o; while node and node:IsA("GuiObject") do if not node.Visible then return false end; node = node.Parent end; return node ~= nil end
 local function scrollerAt(x, y)
     local best, bestZ = nil, -math.huge
-    for i = 1, #SCROLLERS do
-        local e = SCROLLERS[i]; local sf = e.sf
-        if sf.Parent and not e.frozen and shownOnScreen(sf) then
-            local p, sz = sf.AbsolutePosition, sf.AbsoluteSize
+    for i = 1, #SCROLLERS do local e = SCROLLERS[i]; local sf = e.sf
+        if sf.Parent and not e.frozen and shownOnScreen(sf) then local p, sz = sf.AbsolutePosition, sf.AbsoluteSize
             if x >= p.X and x <= p.X + sz.X and y >= p.Y and y <= p.Y + sz.Y then if sf.ZIndex >= bestZ then best, bestZ = e, sf.ZIndex end end
         end
     end
@@ -210,12 +196,8 @@ end
 local function maxScroll(sf, horiz) if horiz then return math.max(0, sf.AbsoluteCanvasSize.X - sf.AbsoluteWindowSize.X) end; return math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteWindowSize.Y) end
 local function stepScrollers(dt)
     local d = math.min(dt, 0.05); local k = math.exp(-SCROLL_DECAY * d)
-    for i = 1, #SCROLLERS do
-        local e = SCROLLERS[i]; local sf = e.sf
-        if sf.Parent and e.vel and e.vel ~= 0 then
-            local horiz = e.horizontal; local lim = maxScroll(sf, horiz)
-            local cur = horiz and sf.CanvasPosition.X or sf.CanvasPosition.Y
-            local nxt = cur + e.vel * d; e.vel = e.vel * k
+    for i = 1, #SCROLLERS do local e = SCROLLERS[i]; local sf = e.sf
+        if sf.Parent and e.vel and e.vel ~= 0 then local horiz = e.horizontal; local lim = maxScroll(sf, horiz); local cur = horiz and sf.CanvasPosition.X or sf.CanvasPosition.Y; local nxt = cur + e.vel * d; e.vel = e.vel * k
             if nxt <= 0 then nxt, e.vel = 0, 0 elseif nxt >= lim then nxt, e.vel = lim, 0 elseif math.abs(e.vel) < 3 then e.vel = 0 end
             sf.CanvasPosition = horiz and Vector2.new(nxt, 0) or Vector2.new(0, nxt)
         end
@@ -224,8 +206,7 @@ end
 local function scrollerEntry(sf) for i = 1, #SCROLLERS do if SCROLLERS[i].sf == sf then return SCROLLERS[i] end end end
 local function fadeEnds(inst, vertical, head, tail)
     head = head or 0.12; tail = tail or 0.12
-    return new("UIGradient", { Rotation = vertical and 90 or 0, Parent = inst,
-        Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(head, 0), NumberSequenceKeypoint.new(1 - tail, 0), NumberSequenceKeypoint.new(1, 1) }) })
+    return new("UIGradient", { Rotation = vertical and 90 or 0, Parent = inst, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(head, 0), NumberSequenceKeypoint.new(1 - tail, 0), NumberSequenceKeypoint.new(1, 1) }) })
 end
 local function customScrollbar(sf, inset)
     sf.ScrollBarThickness = 0
@@ -237,49 +218,41 @@ local function customScrollbar(sf, inset)
     return bar
 end
 local function updateScrollbars()
-    for i = 1, #SCROLLERS do
-        local e = SCROLLERS[i]; local sf, bar = e.sf, e.bar
-        if sf.Parent and bar.Parent then
-            local horiz = e.horizontal
+    for i = 1, #SCROLLERS do local e = SCROLLERS[i]; local sf, bar = e.sf, e.bar
+        if sf.Parent and bar.Parent then local horiz = e.horizontal
             if e.wasHoriz ~= horiz then e.wasHoriz = horiz; e.h, e.pos = nil, nil; bar.AnchorPoint = horiz and Vector2.new(0, 0) or Vector2.new(1, 0); if e.grad then e.grad.Rotation = horiz and 0 or 90 end end
             local view = horiz and sf.AbsoluteWindowSize.X or sf.AbsoluteWindowSize.Y
             local canvas = horiz and sf.AbsoluteCanvasSize.X or sf.AbsoluteCanvasSize.Y
             if canvas <= view + 1 or view < 1 then if bar.Visible then bar.Visible = false end
             else
-                local h = math.max(24, math.floor(view * view / canvas))
-                local at = horiz and sf.CanvasPosition.X or sf.CanvasPosition.Y
-                local prog = math.clamp(at / (canvas - view), 0, 1)
-                local rel = sf.AbsolutePosition - sf.Parent.AbsolutePosition
+                local h = math.max(24, math.floor(view * view / canvas)); local at = horiz and sf.CanvasPosition.X or sf.CanvasPosition.Y
+                local prog = math.clamp(at / (canvas - view), 0, 1); local rel = sf.AbsolutePosition - sf.Parent.AbsolutePosition
                 local p = math.floor((horiz and rel.X or rel.Y) + (view - h) * prog)
                 if not bar.Visible then bar.Visible = true end
                 if e.h ~= h then e.h = h; bar.Size = horiz and UDim2.fromOffset(h, 3) or UDim2.fromOffset(3, h) end
-                if e.pos ~= p then
-                    e.pos = p
-                    if horiz then bar.Position = UDim2.fromOffset(p, math.floor(rel.Y + sf.AbsoluteWindowSize.Y - 3 - e.inset))
-                    else bar.Position = UDim2.new(1, -e.inset, 0, p) end
-                end
+                if e.pos ~= p then e.pos = p; if horiz then bar.Position = UDim2.fromOffset(p, math.floor(rel.Y + sf.AbsoluteWindowSize.Y - 3 - e.inset)) else bar.Position = UDim2.new(1, -e.inset, 0, p) end end
             end
         end
     end
 end
 
-local MonoUI = {}
-MonoUI.__index = MonoUI
+-- ═══ Класс QovickHub ═══
+local QovickHub = {}
+QovickHub.__index = QovickHub
 
-function MonoUI.new(cfg)
+function QovickHub.new(cfg)
     cfg = cfg or {}
-    local self = setmetatable({}, MonoUI)
-    self.cfg = cfg
-    self.categories, self.tabs, self.allModules = {}, {}, {}
-    self.sections, self._order = {}, 0
-    self.activeCategory, self.activeTab = nil, nil
-    self.search = ""
+    local self = setmetatable({}, QovickHub)
+    self.cfg = cfg; self.categories, self.tabs, self.allModules = {}, {}, {}; self.sections, self._order = {}, 0
+    self.activeCategory, self.activeTab = nil, nil; self.search = ""
 
     local mount = mountPoint()
-    if getgenv and getgenv().__mono_gui then pcall(function() getgenv().__mono_gui:Destroy() end) end
+    if getgenv and getgenv().__qovick_gui then pcall(function() getgenv().__qovick_gui:Destroy() end) end
+    
+    -- Используем Frame вместо CanvasGroup, чтобы не было проблем с рендером
     self.gui = new("ScreenGui", { ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
     protect(self.gui); self.gui.Parent = mount
-    if getgenv then getgenv().__mono_gui = self.gui; getgenv().MONOUI = self end
+    if getgenv then getgenv().__qovick_gui = self.gui; getgenv().QovickHub = self end
 
     local W, H = cfg.Width or 820, cfg.Height or 520
     if MOBILE then
@@ -287,7 +260,7 @@ function MonoUI.new(cfg)
         local inset = GuiService:GetGuiInset()
         W = math.floor(math.min(vp.X - 24, 1100)); H = math.floor(math.min(vp.Y - inset.Y - 24, 720))
     end
-    self.root = panel({ Class = "CanvasGroup", AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(W, H), BackgroundColor3 = T.root, ZIndex = 2, Parent = self.gui }, 10)
+    self.root = panel({ Class = "Frame", AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(W, H), BackgroundColor3 = T.root, BackgroundTransparency = 0, ZIndex = 2, Parent = self.gui }, 10)
     self.rootStroke = stroke(self.root, T.strokeSoft, 10, 0.3)
 
     function self:Recenter()
@@ -335,7 +308,7 @@ function MonoUI.new(cfg)
     self.fullImg = select(2, topIcon(self.winIcons, "maximize", function() self:ToggleFullscreen() end))
     topIcon(self.winIcons, "x", function() if self.onCloseRequest then self.onCloseRequest() else self:Destroy() end end, Color3.fromRGB(255, 92, 92))
 
-    new("Frame", { Position = UDim2.fromOffset(0, TOPBAR_H), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.stroke, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 5, Parent = self.root })
+    local topRule = new("Frame", { Position = UDim2.fromOffset(0, TOPBAR_H), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.stroke, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 5, Parent = self.root })
     new("UIGradient", { Parent = topRule, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.04, 0), NumberSequenceKeypoint.new(0.96, 0), NumberSequenceKeypoint.new(1, 1) }) })
 
     local SIDE_W = MOBILE and 196 or 205
@@ -409,7 +382,7 @@ function MonoUI.new(cfg)
         updateScrollbars()
     end))
 
-    local SINK = "MonoWheelSink"; local sunk = false
+    local SINK = "QovickWheelSink"; local sunk = false
     local function setSink(on)
         if on == sunk then return end; sunk = on
         if on then ContextActionService:BindActionAtPriority(SINK, function() return Enum.ContextActionResult.Sink end, false, Enum.ContextActionPriority.High.Value + 200, Enum.UserInputType.MouseWheel)
@@ -442,7 +415,20 @@ function MonoUI.new(cfg)
     return self
 end
 
-function MonoUI:_bindInput()
+function QovickHub:_buildPages()
+    local function makePage(name)
+        local f = new("Frame", { Size = UDim2.new(1, -self.SIDE_W - 16, 1, -self.TOPBAR_H - 27), Position = UDim2.fromOffset(self.SIDE_W, self.TOPBAR_H + 13), BackgroundTransparency = 1, Visible = false, ZIndex = 1, Parent = self.root })
+        text({ Text = name, Font = FONT_BOLD, TextSize = 24, TextColor3 = T.text, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(200, 40), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2, Parent = f })
+        return f
+    end
+    self.pagePlayers = makePage("Players")
+    self.pageServer = makePage("Server")
+    self.pageConfigs = makePage("Configs")
+    self.pageSettings = makePage("Settings")
+    self.pageCredits = makePage("Credits")
+end
+
+function QovickHub:_bindInput()
     sig(UserInputService.InputBegan):Connect(function(input, processed)
         if not self.gui or not self.gui.Parent then return end
         local name; local t = input.UserInputType
@@ -485,7 +471,7 @@ function MonoUI:_bindInput()
     end)
 end
 
-function MonoUI:_drag(handle, target)
+function QovickHub:_drag(handle, target)
     target = target or self.root
     local dragging, sp, so
     handle.InputBegan:Connect(function(i)
@@ -504,7 +490,7 @@ function MonoUI:_drag(handle, target)
     end)
 end
 
-function MonoUI:Tab(name)
+function QovickHub:Tab(name)
     local TAB_BASE = 15
     local btn = new("TextButton", { BackgroundTransparency = 1, AutoButtonColor = false, Text = name, Font = FONT, TextColor3 = T.dim, TextSize = math.floor(TAB_BASE * TEXT_SCALE + 0.5), Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = #self.tabs + 1, ZIndex = 5, Parent = self.tabHolder })
     btn:SetAttribute("BaseTextSize", TAB_BASE); btn:SetAttribute("FontRole", "med")
@@ -516,7 +502,7 @@ function MonoUI:Tab(name)
     return tab
 end
 
-function MonoUI:SelectTab(tab)
+function QovickHub:SelectTab(tab)
     local changed = self.activeTab ~= tab
     if self.activeTab and changed then tw(self.activeTab.button, FAST, { TextColor3 = T.dim }) end
     self.activeTab = tab; tw(tab.button, EASE, { TextColor3 = T.text })
@@ -549,7 +535,7 @@ function MonoUI:SelectTab(tab)
     end)
 end
 
-function MonoUI:Category(name, iconName)
+function QovickHub:Category(name, iconName)
     local cat = { name = name, icon = iconName, modules = {}, ui = self }
     local btn = panel({ Class = "ImageButton", Size = UDim2.new(1, 0, 0, CAT_H), BackgroundColor3 = T.panel, BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 4, LayoutOrder = #self.categories + 1, Parent = self.catList }, 6)
     local ico = icon(iconName or "box", { Size = UDim2.fromOffset(24, 24), AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), ImageColor3 = T.faint, ZIndex = 6, Parent = btn })
@@ -589,14 +575,14 @@ function MonoUI:Category(name, iconName)
     return cat
 end
 
-function MonoUI:_syncFavorites()
+function QovickHub:_syncFavorites()
     local fav = self.favCategory; if not fav then return end
     local any = #fav.modules > 0; fav.button.Visible = any
     if not any and self.activeCategory == fav then for _, c in ipairs(self.categories) do if c ~= fav then self:SelectCategory(c) break end end end
     self:Refresh()
 end
 
-function MonoUI:SelectCategory(cat)
+function QovickHub:SelectCategory(cat)
     if self.activeCategory == cat then return end
     local prev = self.activeCategory; self.activeCategory = cat
     if prev then tw(prev.button, FAST, { BackgroundTransparency = 1 }); tw(prev.label, FAST, { TextColor3 = T.dim }); tw(prev.iconImg, FAST, { ImageColor3 = T.faint }) end
@@ -604,7 +590,7 @@ function MonoUI:SelectCategory(cat)
     self:Refresh(true)
 end
 
-function MonoUI:_module(cat, opts)
+function QovickHub:_module(cat, opts)
     opts = opts or {}
     local m = { name = opts.Name or "Module", desc = opts.Desc or "", bind = opts.Bind, state = opts.Default and true or false, callback = opts.Callback, settings = {}, category = cat, action = opts.Action and true or false, hold = opts.Hold and true or false, info = opts.Info }
     m.categories = { cat }; self._order = self._order + 1
@@ -674,9 +660,9 @@ function MonoUI:_module(cat, opts)
     return m
 end
 
-function MonoUI:_listen(m) local prev = self.listening; self.listening = m; if prev and prev._paintChip then prev._paintChip() end; if m then if self.searchInput then self.searchInput:ReleaseFocus() end; if m._paintChip then m._paintChip() end end end
-function MonoUI:_updateCounts() for _, cat in ipairs(self.categories) do local n = 0; for _, m in ipairs(cat.modules) do if m.state and not m.action then n = n + 1 end end; cat.countLabel.Text = n > 0 and tostring(n) or "" end end
-function MonoUI:Refresh(animate)
+function QovickHub:_listen(m) local prev = self.listening; self.listening = m; if prev and prev._paintChip then prev._paintChip() end; if m then if self.searchInput then self.searchInput:ReleaseFocus() end; if m._paintChip then m._paintChip() end end end
+function QovickHub:_updateCounts() for _, cat in ipairs(self.categories) do local n = 0; for _, m in ipairs(cat.modules) do if m.state and not m.action then n = n + 1 end end; cat.countLabel.Text = n > 0 and tostring(n) or "" end end
+function QovickHub:Refresh(animate)
     local q = self.search; local shown = 0
     for _, m in ipairs(self.allModules) do
         local match = (q == "") or m.name:lower():find(q, 1, true) or (m.display or m.name):lower():find(q, 1, true) or m.desc:lower():find(q, 1, true)
@@ -708,11 +694,11 @@ local function fadePlan(root)
     return plan
 end
 local function eachFadeTarget(root, alpha, apply) local plan = fadePlan(root); for i = 1, #plan do local e = plan[i]; local base = e[3]; apply(e[1], e[2], base + (1 - base) * alpha) end end
-function MonoUI:_captureBase(root) eachFadeTarget(root, 0, function() end) end
-function MonoUI:_setFade(root, alpha) eachFadeTarget(root, alpha, function(inst, prop, value) inst[prop] = value end) end
-function MonoUI:_fade(root, alpha, ti) ti = ti or EASE; eachFadeTarget(root, alpha, function(inst, prop, value) tw(inst, ti, { [prop] = value }) end) end
+function QovickHub:_captureBase(root) eachFadeTarget(root, 0, function() end) end
+function QovickHub:_setFade(root, alpha) eachFadeTarget(root, alpha, function(inst, prop, value) inst[prop] = value end) end
+function QovickHub:_fade(root, alpha, ti) ti = ti or EASE; eachFadeTarget(root, alpha, function(inst, prop, value) tw(inst, ti, { [prop] = value }) end) end
 
-function MonoUI:OpenDrawer(m)
+function QovickHub:OpenDrawer(m)
     self.drawerTitle.Text = m and (m.display or m.name) or "Настройки"
     for _, c in ipairs(self.drawerBody:GetChildren()) do if not c:IsA("UIListLayout") then c:Destroy() end end
     if m and (m.info or m.desc) ~= nil and (m.info or m.desc) ~= "" then
@@ -730,18 +716,18 @@ function MonoUI:OpenDrawer(m)
     self.modalOpen = true; BLOCKED.on = true; self:_freezeScroll(true); self.scrim.Visible = true; self.scrim.BackgroundTransparency = 1
     tw(self.scrim, OPEN, { BackgroundTransparency = 0.45 }); self:_setFade(self.drawer, 1); self:_fade(self.drawer, 0, OPEN)
 end
-function MonoUI:CloseDrawer()
+function QovickHub:CloseDrawer()
     self.modalOpen = false; BLOCKED.on = false; self.drawerBody.ScrollingEnabled = true; self:_freezeScroll(false)
     self:_fade(self.drawer, 1, CLOSE); tw(self.scrim, CLOSE, { BackgroundTransparency = 1 })
     task.delay(0.24, function() if self.drawer.BackgroundTransparency >= 0.99 then self.drawer.Visible = false; self.scrim.Visible = false end end)
 end
-function MonoUI:_freezeScroll(on)
+function QovickHub:_freezeScroll(on)
     for i = 1, #SCROLLERS do local e = SCROLLERS[i]; if e.sf.Parent and e.sf ~= self.drawerBody then e.frozen = on or nil; if on then e.vel = 0 end; e.sf.ScrollingEnabled = not on end end
 end
-function MonoUI:SetSmoothScroll(on) SMOOTH.scroll = on and true or false; for i = 1, #SCROLLERS do local e = SCROLLERS[i]; if e.sf.Parent then e.vel = 0; e.sf.ScrollingEnabled = not e.frozen end end end
-function MonoUI:SetSmoothDrag(on) SMOOTH.drag = on and true or false; if not SMOOTH.drag then self._dragGoal = nil end end
+function QovickHub:SetSmoothScroll(on) SMOOTH.scroll = on and true or false; for i = 1, #SCROLLERS do local e = SCROLLERS[i]; if e.sf.Parent then e.vel = 0; e.sf.ScrollingEnabled = not e.frozen end end end
+function QovickHub:SetSmoothDrag(on) SMOOTH.drag = on and true or false; if not SMOOTH.drag then self._dragGoal = nil end end
 
-function MonoUI:Confirm(cfg)
+function QovickHub:Confirm(cfg)
     cfg = cfg or {}; if self._confirmOpen then return end; self._confirmOpen = true
     local W = MOBILE and 380 or 348; local innerW = W - 36; local bodyText = cfg.Body or ""
     local bs = math.floor(13 * TEXT_SCALE + 0.5); local okB, bz = pcall(function() return TextService:GetTextSize(bodyText, bs, FONT_REG, Vector2.new(innerW, 10000)) end)
@@ -771,7 +757,7 @@ function MonoUI:Confirm(cfg)
     shade.MouseButton1Click:Connect(function() close(cfg.OnCancel) end)
 end
 
-function MonoUI:Reload()
+function QovickHub:Reload()
     if self._reloading then return end; self._reloading = true
     if self.refreshImg then self.refreshImg.Rotation = 0; tw(self.refreshImg, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Rotation = 360 }) end
     local name = self.activeTab and self.activeTab.name or "Modules"; local onModules = name == "Modules"; local page = self._activePage
@@ -789,12 +775,12 @@ function MonoUI:Reload()
     end)
 end
 
-function MonoUI:_buildNotifications()
+function QovickHub:_buildNotifications()
     self.notifyHost = new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18), Size = UDim2.fromOffset(MOBILE and 320 or 288, 1), BackgroundTransparency = 1, ZIndex = 40, Parent = self.gui })
     new("UIListLayout", { VerticalAlignment = Enum.VerticalAlignment.Bottom, HorizontalAlignment = Enum.HorizontalAlignment.Right, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8), Parent = self.notifyHost })
     self.notifySeq = 0
 end
-function MonoUI:Notify(cfg)
+function QovickHub:Notify(cfg)
     cfg = cfg or {}; if not self.notifyHost then return end; self.notifySeq = self.notifySeq + 1
     local PAD_X, PAD_T, PAD_B, TITLE_H, GAP = 14, 11, 12, 18, 3
     local hostW = self.notifyHost.AbsoluteSize.X; if hostW < 1 then hostW = MOBILE and 320 or 288 end
@@ -819,7 +805,7 @@ function MonoUI:Notify(cfg)
     return handle
 end
 
-function MonoUI:_buildTour()
+function QovickHub:_buildTour()
     local host = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 60, Parent = self.gui })
     local shade = new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 60, Parent = host })
     local ring = new("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 61, Parent = host })
@@ -842,8 +828,8 @@ function MonoUI:_buildTour()
     self:_captureBase(host)
     nextBtn.MouseButton1Click:Connect(function() self:_tourNext() end); skipBtn.MouseButton1Click:Connect(function() self:EndTour() end); shade.MouseButton1Click:Connect(function() self:_tourNext() end)
 end
-function MonoUI:AddTourStep(cfg) if not self.tour then return end; table.insert(self.tour.steps, cfg) end
-function MonoUI:_tourPlace(target)
+function QovickHub:AddTourStep(cfg) if not self.tour then return end; table.insert(self.tour.steps, cfg) end
+function QovickHub:_tourPlace(target)
     local t = self.tour; local pad = 2
     if typeof(target) == "Instance" and target:IsA("GuiObject") then
         local rp = self.root.AbsolutePosition; local ap, as = target.AbsolutePosition, target.AbsoluteSize
@@ -858,7 +844,7 @@ function MonoUI:_tourPlace(target)
         tw(t.card, EASE, { Position = UDim2.fromOffset(x, y) })
     else t.ring.Visible = false; local space = self.gui.AbsoluteSize; tw(t.card, EASE, { Position = UDim2.fromOffset(math.floor((space.X - t.card.AbsoluteSize.X) / 2), math.floor((space.Y - t.card.AbsoluteSize.Y) / 2)) }) end
 end
-function MonoUI:_tourNext()
+function QovickHub:_tourNext()
     local t = self.tour; if not t or not t.host.Visible then return end; t.index = t.index + 1; local s = t.steps[t.index]; if not s then return self:EndTour() end
     if s.Before then pcall(s.Before, self) end; t.step.Text = ("Шаг %d из %d"):format(t.index, #t.steps); t.title.Text = s.Title or ""
     t.nextLbl.Text = (t.index >= #t.steps) and "Готово" or "Далее"; local bodyText = s.Body or ""; t.body.Text = bodyText
@@ -867,15 +853,15 @@ function MonoUI:_tourNext()
     local rawTarget = s.Target; local myIndex = t.index
     task.spawn(function() RunService.Heartbeat:Wait(); RunService.Heartbeat:Wait(); if t.index ~= myIndex or not t.host.Visible then return end; local target = rawTarget; if typeof(target) == "function" then local ok, r = pcall(target, self); target = ok and r or nil end; self:_tourPlace(target) end)
 end
-function MonoUI:StartTour()
+function QovickHub:StartTour()
     local t = self.tour; if not t or #t.steps == 0 then return end; t.index = 0; t.ring.Visible = false; t.host.Visible = true; BLOCKED.on = true
     self:_setFade(t.host, 1); self:_fade(t.host, 0, OPEN); tw(t.shade, OPEN, { BackgroundTransparency = 0.55 }); self:_tourNext()
 end
-function MonoUI:EndTour()
+function QovickHub:EndTour()
     local t = self.tour; if not t or not t.host.Visible then return end; BLOCKED.on = false; self:_fade(t.host, 1, CLOSE); tw(t.shade, CLOSE, { BackgroundTransparency = 1 }); task.delay(0.26, function() t.host.Visible = false end); if self.onTourEnd then pcall(self.onTourEnd) end
 end
 
-function MonoUI:_buildBadge()
+function QovickHub:_buildBadge()
     local cfg = self.cfg or {}; local hasLogo = self.logoId ~= nil; local markRect = hasLogo and cfg.LogoMarkRect or nil; local BW, BH
     if markRect then BW, BH = 52, 52 elseif hasLogo then BW, BH = 106, 46 else BW, BH = 46, 46 end
     local SS = 0.05
@@ -897,16 +883,16 @@ function MonoUI:_buildBadge()
     self:_drag(self.badge, self.badge)
 end
 
-function MonoUI:_clampToScreen(x, y, w, h) local M = 8; local space = self.gui.AbsoluteSize; local inset = GuiService:GetGuiInset(); return UDim2.fromOffset(math.clamp(math.floor(x), M, math.max(M, space.X - w - M)), math.clamp(math.floor(y), inset.Y + M, math.max(inset.Y + M, space.Y - h - M))) end
-function MonoUI:Present() if self._presented or self._destroyed then return end; self._presented = true; self.root.GroupTransparency = 1; tw(self.root, OPEN, { GroupTransparency = 0 }); if self.rootStroke then tw(self.rootStroke, OPEN, { Transparency = baseOf(self.rootStroke, "Transparency") }) end end
-function MonoUI:Minimize()
+function QovickHub:_clampToScreen(x, y, w, h) local M = 8; local space = self.gui.AbsoluteSize; local inset = GuiService:GetGuiInset(); return UDim2.fromOffset(math.clamp(math.floor(x), M, math.max(M, space.X - w - M)), math.clamp(math.floor(y), inset.Y + M, math.max(inset.Y + M, space.Y - h - M))) end
+function QovickHub:Present() if self._presented or self._destroyed then return end; self._presented = true; self.root.GroupTransparency = 1; tw(self.root, OPEN, { GroupTransparency = 0 }); if self.rootStroke then tw(self.rootStroke, OPEN, { Transparency = baseOf(self.rootStroke, "Transparency") }) end end
+function QovickHub:Minimize()
     if self.minimized then return end; self.minimized = true; if self.drawer.Visible then self:CloseDrawer() end
     if not self._badgeMoved then local rp, rs, bs = self.root.Position, self.root.AbsoluteSize, self.badge.AbsoluteSize; self.badge.Position = self:_clampToScreen(rp.X.Offset + math.floor(rs.X / 2) - math.floor(bs.X / 2), rp.Y.Offset + math.floor(rs.Y / 2) - math.floor(bs.Y / 2), bs.X, bs.Y) end
     tw(self.root, WIN_FADE, { GroupTransparency = 1 }); if self.rootStroke then tw(self.rootStroke, WIN_FADE, { Transparency = 1 }) end
     task.delay(0.06, function() if not self.minimized then return end; self.badge.Visible = true; self:_setFade(self.badge, 1); self:_fade(self.badge, 0, WIN_FADE) end)
     task.delay(0.26, function() if not self.minimized then return end; self.root.Visible = false end)
 end
-function MonoUI:Restore()
+function QovickHub:Restore()
     if not self.minimized then return end; self.minimized = false
     if self.fullscreen then local space = self.gui.AbsoluteSize; local inset = GuiService:GetGuiInset(); local usableY = space.Y - inset.Y; local M = 18; self.root.Size = UDim2.fromOffset(space.X - M * 2, usableY - M * 2); self.root.Position = UDim2.fromOffset(M, inset.Y + M)
     else local bp, bs, rs = self.badge.Position, self.badge.AbsoluteSize, self.root.AbsoluteSize; self.root.Position = self:_clampToScreen(bp.X.Offset + math.floor(bs.X / 2) - math.floor(rs.X / 2), bp.Y.Offset + math.floor(bs.Y / 2) - math.floor(rs.Y / 2), rs.X, rs.Y) end
@@ -914,23 +900,23 @@ function MonoUI:Restore()
     self.root.Visible = true; self.root.GroupTransparency = 1; tw(self.root, WIN_FADE, { GroupTransparency = 0 })
     if self.rootStroke then self.rootStroke.Transparency = 1; tw(self.rootStroke, WIN_FADE, { Transparency = baseOf(self.rootStroke, "Transparency") }) end
 end
-function MonoUI:ToggleFullscreen()
+function QovickHub:ToggleFullscreen()
     local M = 18
     if self.fullscreen then self.fullscreen = false; local ps = self._preSize; local w = ps.X.Offset > 0 and ps.X.Offset or self.root.AbsoluteSize.X; local h = ps.Y.Offset > 0 and ps.Y.Offset or self.root.AbsoluteSize.Y; tw(self.root, EASE, { Size = ps, Position = self:_clampToScreen(self._prePos.X.Offset, self._prePos.Y.Offset, w, h) }); setIcon(self.fullImg, "maximize"); self.fullImg:SetAttribute("Active", false); tw(self.fullImg, FAST, { ImageColor3 = T.dim })
     else self.fullscreen = true; self._preSize, self._prePos = self.root.Size, self.root.Position; local space = self.gui.AbsoluteSize; local inset = GuiService:GetGuiInset(); local usableY = space.Y - inset.Y; tw(self.root, EASE, { Size = UDim2.fromOffset(space.X - M * 2, usableY - M * 2), Position = UDim2.fromOffset(M, inset.Y + M) }); setIcon(self.fullImg, "minimize"); self.fullImg:SetAttribute("Active", true); tw(self.fullImg, FAST, { ImageColor3 = T.star }) end
     task.delay(0.27, function() self:SetLayout(nil, false) end)
 end
-function MonoUI:Destroy()
+function QovickHub:Destroy()
     if self._destroyed then return end; self._destroyed = true
     for _, m in ipairs(self.allModules) do if not m.action and m.state then pcall(function() m:Toggle(false) end) end end
     if self._releaseWheel then pcall(self._releaseWheel) end
     local OUT = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.In); local rs = self.root.AbsoluteSize; local rx, ry = self.root.Position.X.Offset, self.root.Position.Y.Offset; local sx, sy = math.floor(rs.X * 0.9), math.floor(rs.Y * 0.9)
     tw(self.root, OUT, { GroupTransparency = 1, Size = UDim2.fromOffset(sx, sy), Position = UDim2.fromOffset(rx + math.floor((rs.X - sx) / 2), ry + math.floor((rs.Y - sy) / 2)) })
     if self.rootStroke then tw(self.rootStroke, OUT, { Transparency = 1 }) end; if self.badge then self:_fade(self.badge, 1, CLOSE) end
-    task.delay(0.36, function() if self._releaseWheel then pcall(self._releaseWheel) end; if getgenv and getgenv().MONOUI_CLEANUP then pcall(getgenv().MONOUI_CLEANUP) end; if getgenv then getgenv().MONOUI_CLEANUP = nil; getgenv().MONOUI = nil end; pcall(function() self.gui:Destroy() end); if getgenv then getgenv().__mono_gui = nil end; if self.onDestroy then pcall(self.onDestroy) end end)
+    task.delay(0.36, function() if self._releaseWheel then pcall(self._releaseWheel) end; if getgenv and getgenv().QOVICKHUB_CLEANUP then pcall(getgenv().QOVICKHUB_CLEANUP) end; if getgenv then getgenv().QOVICKHUB_CLEANUP = nil; getgenv().QovickHub = nil end; pcall(function() self.gui:Destroy() end); if getgenv then getgenv().__qovick_gui = nil end; if self.onDestroy then pcall(self.onDestroy) end end)
 end
 
-function MonoUI:SetLayout(opts, animate)
+function QovickHub:SetLayout(opts, animate)
     opts = opts or {}; self.layout = self.layout or { side = "Left", search = "Top" }
     if opts.side then self.layout.side = opts.side end; if opts.search then self.layout.search = opts.search end
     local function clean(props) local t = {}; for k, v in pairs(props) do if k ~= "__fast" then t[k] = v end end; return t end
@@ -954,17 +940,17 @@ function MonoUI:SetLayout(opts, animate)
     self.edgeStrip.Position = UDim2.fromOffset(right and (self.root.AbsoluteSize.X - 16) or 0, TB + PAD)
     if self.midIcons then self.midIcons.Position = UDim2.fromOffset(math.floor((self.root.AbsoluteSize.X - self.midIcons.AbsoluteSize.X) / 2 + 0.5), 0) end
 end
-function MonoUI:_setDivider(shown, animate)
+function QovickHub:_setDivider(shown, animate)
     local line = self.dividerLine; if not line then return end; if shown then line.Visible = true end
     if animate then tw(line, shown and OPEN or FAST, { BackgroundTransparency = shown and 0.35 or 1 }); if not shown then task.delay(0.16, function() if line.BackgroundTransparency >= 0.99 then line.Visible = false end end) end
     else line.BackgroundTransparency = shown and 0.35 or 1; line.Visible = shown end
 end
-function MonoUI:_setSidebar(shown, animate)
+function QovickHub:_setSidebar(shown, animate)
     if self._sideShown == shown then return end; self._sideShown = shown; local onModules = (not self.activeTab) or self.activeTab.name == "Modules"
     if shown and onModules then self.side.Visible = true end
     self:_fade(self.side, shown and 0 or 1, animate and (shown and OPEN or FAST) or TweenInfo.new(0)); self:SetLayout(nil, animate)
 end
-function MonoUI:SetCompact(v)
+function QovickHub:SetCompact(v)
     self.compact = v and true or false; local h = self.compact and ROW_H_COMPACT or ROW_H
     for _, m in ipairs(self.allModules) do tw(m.row, EASE, { Size = UDim2.new(1, 0, 0, h) }); if m.descLbl then m.descLbl.Visible = (not self.compact) and self.showDesc ~= false end end
     if self.layoutImg then setIcon(self.layoutImg, self.compact and "rows-3" or "panels-top-left"); self.layoutImg:SetAttribute("Active", self.compact); tw(self.layoutImg, FAST, { ImageColor3 = self.compact and T.star or T.dim }) end
@@ -979,26 +965,26 @@ function MonoUI:SetCompact(v)
         end)
     end
 end
-function MonoUI:SetTextScale(mult) TEXT_SCALE = mult; for _, d in ipairs(self.gui:GetDescendants()) do local base = d:GetAttribute("BaseTextSize"); if base then d.TextSize = math.floor(base * mult + 0.5) end end end
-function MonoUI:SetFontFamily(name)
+function QovickHub:SetTextScale(mult) TEXT_SCALE = mult; for _, d in ipairs(self.gui:GetDescendants()) do local base = d:GetAttribute("BaseTextSize"); if base then d.TextSize = math.floor(base * mult + 0.5) end end end
+function QovickHub:SetFontFamily(name)
     local fam = FAMILIES[name]; if not fam then return end; FONT_REG, FONT, FONT_BOLD = fam[1], fam[2], fam[3]
     local byRole = { reg = FONT_REG, med = FONT, bold = FONT_BOLD }
     for _, d in ipairs(self.gui:GetDescendants()) do if d:IsA("TextLabel") or d:IsA("TextBox") or d:IsA("TextButton") then local role = d:GetAttribute("FontRole"); if role and byRole[role] then d.Font = byRole[role] end end end
 end
-function MonoUI:SetAccent(color)
+function QovickHub:SetAccent(color)
     T.star, T.onTrack = color, color
     for _, m in ipairs(self.allModules) do if m._paint then m._paint(true) end; if m._paintStar then m._paintStar() end end
     for _, c in ipairs(self.categories) do if c == self.activeCategory then tw(c.iconImg, FAST, { ImageColor3 = (c == self.favCategory) and T.star or T.text }) end end
     if self.layoutImg and self.compact then tw(self.layoutImg, FAST, { ImageColor3 = T.star }) end
     for _, d in ipairs(self.gui:GetDescendants()) do local role = d:GetAttribute("AccentRole"); if role == "fill" then tw(d, FAST, { BackgroundColor3 = color }) elseif role == "track" and d:GetAttribute("AccentOn") then tw(d, FAST, { BackgroundColor3 = color }) elseif role == "knob" and d:GetAttribute("AccentOn") then tw(d, FAST, { BackgroundColor3 = contrastKnob(color) }) end end
 end
-function MonoUI:SetOpacity(pct) local a = 1 - math.clamp(pct, 20, 100) / 100; self.root.BackgroundTransparency = a; self.root:SetAttribute("_base_BackgroundTransparency", a) end
-function MonoUI:ResetSettings()
+function QovickHub:SetOpacity(pct) local a = 1 - math.clamp(pct, 20, 100) / 100; self.root.BackgroundTransparency = a; self.root:SetAttribute("_base_BackgroundTransparency", a) end
+function QovickHub:ResetSettings()
     for _, cfg in ipairs(self.uiSettings or {}) do if cfg.Title and cfg.Default ~= nil then local cur = cfg.Value; if cur == nil then cur = cfg.Default end; if cur ~= cfg.Default then cfg.Value = cfg.Default; if cfg.Callback then pcall(cfg.Callback, cfg.Default) end end end end
     if self._refreshSettings then self._refreshSettings() end
 end
 
-function MonoUI:_buildUISettings()
+function QovickHub:_buildUISettings()
     local accents = { Gray = Color3.fromRGB(205, 205, 205), Orange = Color3.fromRGB(255, 157, 46), White = Color3.fromRGB(232, 232, 232), Blue = Color3.fromRGB(80, 160, 255), Green = Color3.fromRGB(96, 210, 130), Red = Color3.fromRGB(255, 92, 92), Purple = Color3.fromRGB(178, 130, 255) }
     self.uiSettings = {
         { Type = "Section", Text = "ВНЕШНИЙ ВИД" },
@@ -1027,7 +1013,7 @@ sig(UserInputService.InputChanged):Connect(function(i) if not activeSlider then 
 sig(UserInputService.InputEnded):Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then activeSlider = nil end end)
 local function settingValue(cfg) if cfg.Value == nil then cfg.Value = cfg.Default end; return cfg.Value end
 
-function MonoUI:_setting(cfg, body)
+function QovickHub:_setting(cfg, body)
     local kind = cfg.Type or "Toggle"; body = body or self.drawerBody
     if kind == "Toggle" then
         local row = panel({ Class = "TextButton", Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = T.inset, BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 22, Parent = body }, 7)
@@ -1055,20 +1041,23 @@ function MonoUI:_setting(cfg, body)
     end
 end
 
-return MonoUI
+return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
 --  Инициализация QovickHub + Читы
 -- ═══════════════════════════════════════════════════════════════════════════
-local MonoUI = loadstring(MONOUI_SOURCE)()
+local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
-local Hub = MonoUI.new({
+local Hub = QovickHub.new({
     Title = "QovickHub",
     Version = "v1.0",
     Width = 820,
     Height = 520,
 })
+
+-- Даем UI прогрузиться
+task.wait(0.1)
 
 Hub:Tab("Modules")
 Hub:Tab("Players")
@@ -1077,11 +1066,17 @@ Hub:Tab("Configs")
 Hub:Tab("Settings")
 Hub:Tab("Credits")
 
+-- Даем табам создаться
+task.wait(0.1)
+
 local Main = Hub:Category("Main", "box")
 local Visuals = Hub:Category("Visuals", "star")
 local Combat = Hub:Category("Combat", "star")
 local Movement = Hub:Category("Movement", "settings")
 local Misc = Hub:Category("Misc", "settings")
+
+-- Даем категориям отрисоваться
+task.wait(0.1)
 
 -- ═══ Читы ═══
 local Players = game:GetService("Players")
@@ -1090,9 +1085,7 @@ local UserInputService = game:GetService("UserInputService")
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-local State = {
-    ESP = false, SilentAim = false, Fly = false, Speed = false, SpeedValue = 50,
-}
+local State = { ESP = false, SilentAim = false, Fly = false, Speed = false, SpeedValue = 50 }
 local ESPObjects = {}
 local FlyConnection = nil
 local SpeedConnection = nil
