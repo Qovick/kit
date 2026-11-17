@@ -249,7 +249,6 @@ function QovickHub.new(cfg)
     local mount = mountPoint()
     if getgenv and getgenv().__qovick_gui then pcall(function() getgenv().__qovick_gui:Destroy() end) end
     
-    -- Используем Frame вместо CanvasGroup, чтобы не было проблем с рендером
     self.gui = new("ScreenGui", { ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
     protect(self.gui); self.gui.Parent = mount
     if getgenv then getgenv().__qovick_gui = self.gui; getgenv().QovickHub = self end
@@ -1038,6 +1037,28 @@ function QovickHub:_setting(cfg, body)
         local hit = new("TextButton", { BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 20), ZIndex = 26, Parent = row })
         local function apply(px) local rel = math.clamp((px - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1); local v = math.floor(min + (max - min) * rel + 0.5); if cfg.Adjust then local ok, adj = pcall(cfg.Adjust, v); if ok and type(adj) == "number" then v = adj end end; if cfg.Value == v then return end; cfg.Value = v; valLbl.Text = fmtVal(v); local av = math.clamp((v - min) / math.max(max - min, 1), 0, 1); tw(fill, FAST, { Size = UDim2.new(av, 0, 1, 0) }); tw(knob, FAST, { Position = UDim2.new(av, 0, 0.5, 0) }); if cfg.Callback then task.spawn(cfg.Callback, v) end end
         hit.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then activeSlider = apply; apply(i.Position.X) end end)
+    elseif kind == "Dropdown" then
+        local row = panel({ Class = "TextButton", Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = T.inset, AutoButtonColor = false, ZIndex = 22, Parent = body }, 7)
+        text({ Text = cfg.Title or "Select", TextSize = 14, TextColor3 = T.text, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.new(1, -80, 0, 16), ZIndex = 23, Parent = row })
+        local cur = settingValue(cfg) or (cfg.Values and cfg.Values[1])
+        local valLbl = text({ Text = tostring(cur), TextSize = 12, TextColor3 = T.star, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -28, 0.5, 0), Size = UDim2.fromOffset(80, 16), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 23, Parent = row })
+        text({ Text = "▾", TextSize = 12, TextColor3 = T.faint, Font = FONT_REG, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(14, 16), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 23, Parent = row })
+        local popup
+        row.MouseButton1Click:Connect(function()
+            if popup then pcall(function() popup:Destroy() end); popup = nil; return end
+            local items = cfg.Values or {}; local ih = 30; local ph = #items * ih + 8
+            popup = panel({ Position = row.Position + UDim2.fromOffset(0, 34 + 4), Size = UDim2.new(1, 0, 0, ph), BackgroundColor3 = T.panel, ZIndex = 40, Parent = body }, 7)
+            stroke(popup, T.strokeSoft, 7, 0.25)
+            new("UIListLayout", { Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder, Parent = popup })
+            new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), Parent = popup })
+            for i, val in ipairs(items) do
+                local b = panel({ Class = "TextButton", Size = UDim2.new(1, 0, 0, ih), BackgroundColor3 = T.panel, BackgroundTransparency = 1, AutoButtonColor = false, LayoutOrder = i, ZIndex = 41, Parent = popup }, 5)
+                text({ Text = tostring(val), TextSize = 13, TextColor3 = (val == cur) and T.star or T.text, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -20, 1, 0), ZIndex = 42, Parent = b })
+                b.MouseEnter:Connect(function() tw(b, FAST, { BackgroundTransparency = 0, BackgroundColor3 = T.panelHover }) end)
+                b.MouseLeave:Connect(function() tw(b, FAST, { BackgroundTransparency = 1 }) end)
+                b.MouseButton1Click:Connect(function() cur = val; cfg.Value = val; valLbl.Text = tostring(val); if cfg.Callback then task.spawn(cfg.Callback, val) end; if popup then pcall(function() popup:Destroy() end); popup = nil end end)
+            end
+        end)
     end
 end
 
@@ -1045,7 +1066,7 @@ return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
---  Инициализация QovickHub + Читы
+--  Инициализация QovickHub + Читы (ИСПРАВЛЕНО)
 -- ═══════════════════════════════════════════════════════════════════════════
 local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
@@ -1056,8 +1077,8 @@ local Hub = QovickHub.new({
     Height = 520,
 })
 
--- Даем UI прогрузиться
-task.wait(0.1)
+-- Даем UI прогрузиться (ОЧЕНЬ ВАЖНО)
+task.wait(0.2)
 
 Hub:Tab("Modules")
 Hub:Tab("Players")
@@ -1066,17 +1087,15 @@ Hub:Tab("Configs")
 Hub:Tab("Settings")
 Hub:Tab("Credits")
 
--- Даем табам создаться
-task.wait(0.1)
+task.wait(0.2)
 
-local Main = Hub:Category("Main", "box")
+-- Создаем категории (Убрали Main, так как она была пустой)
 local Visuals = Hub:Category("Visuals", "star")
 local Combat = Hub:Category("Combat", "star")
 local Movement = Hub:Category("Movement", "settings")
 local Misc = Hub:Category("Misc", "settings")
 
--- Даем категориям отрисоваться
-task.wait(0.1)
+task.wait(0.2)
 
 -- ═══ Читы ═══
 local Players = game:GetService("Players")
@@ -1226,7 +1245,7 @@ local function EnableSpeed(on, val)
     end)
 end
 
--- ═══ Добавление модулей в меню ═══
+-- ═══ Добавление модулей в меню (ИСПРАВЛЕНО) ═══
 Visuals:Section("ESP")
 Visuals:Module({
     Name = "ESP Player",
@@ -1269,6 +1288,9 @@ Misc:Module({
         game:GetService("TeleportService"):Teleport(game.PlaceId, LP)
     end,
 })
+
+-- Принудительно выбираем категорию Visuals, чтобы сразу увидеть модули
+Hub:SelectCategory(Visuals)
 
 -- Запуск цикла ESP
 RunService.Heartbeat:Connect(UpdateESP)
