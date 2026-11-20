@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub v1.0 (База: MonoUI, 2000 строк) + Читы
+--  QovickHub v1.0 — Полный скрипт (UI + Читы + Auto Farm)
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -249,7 +249,6 @@ function QovickHub.new(cfg)
     local mount = mountPoint()
     if getgenv and getgenv().__qovick_gui then pcall(function() getgenv().__qovick_gui:Destroy() end) end
     
-    -- ИСПРАВЛЕНИЕ: Frame вместо CanvasGroup
     self.gui = new("ScreenGui", { ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
     protect(self.gui); self.gui.Parent = mount
     if getgenv then getgenv().__qovick_gui = self.gui; getgenv().QovickHub = self end
@@ -1066,7 +1065,7 @@ return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
---  Инициализация QovickHub + Читы
+--  Инициализация QovickHub + Читы + Auto Farm
 -- ═══════════════════════════════════════════════════════════════════════════
 local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
@@ -1077,7 +1076,6 @@ local Hub = QovickHub.new({
     Height = 520,
 })
 
--- Даем UI прогрузиться (ОЧЕНЬ ВАЖНО)
 task.wait(0.2)
 
 Hub:Tab("Modules")
@@ -1089,15 +1087,15 @@ Hub:Tab("Credits")
 
 task.wait(0.2)
 
--- Создаем категории (Убрали Main, так как она была пустой)
 local Visuals = Hub:Category("Visuals", "star")
 local Combat = Hub:Category("Combat", "star")
 local Movement = Hub:Category("Movement", "settings")
+local AutoFarm = Hub:Category("Auto Farm", "coins")
 local Misc = Hub:Category("Misc", "settings")
 
 task.wait(0.2)
 
--- ═══ Читы ═══
+-- ═══ Читы и ESP ═══
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -1110,41 +1108,98 @@ local FlyConnection = nil
 local SpeedConnection = nil
 local OriginalWalkSpeed = 16
 
+-- Функция определения роли
+local function GetPlayerRole(player)
+    local char = player.Character
+    if not char then return "Innocent" end
+    
+    local roleObj = player:FindFirstChild("Role") or player:FindFirstChild("role") or player:FindFirstChild("RoleName") or player:FindFirstChild("Team")
+    if roleObj and roleObj:IsA("StringValue") then
+        local r = roleObj.Value:lower()
+        if r:find("murder") or r:find("убийца") then return "Murderer" end
+        if r:find("sheriff") or r:find("шериф") then return "Sheriff" end
+    end
+    
+    local backpack = player:FindFirstChild("Backpack")
+    local inventory = {}
+    if backpack then for _, item in ipairs(backpack:GetChildren()) do if item:IsA("Tool") then table.insert(inventory, item) end end end
+    for _, item in ipairs(char:GetChildren()) do if item:IsA("Tool") then table.insert(inventory, item) end end
+    
+    for _, item in ipairs(inventory) do
+        local name = item.Name:lower()
+        if name:find("knife") or name:find("нож") or name:find("dagger") then return "Murderer"
+        elseif name:find("gun") or name:find("пистолет") or name:find("revolver") or name:find("pistol") then return "Sheriff" end
+    end
+    
+    return "Innocent"
+end
+
 -- ESP
 local function CreateESP(player)
     local char = player.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+    
+    local role = GetPlayerRole(player)
+    local roleColor = Color3.fromRGB(50, 255, 50)
+    local roleText = "Innocent"
+    
+    if role == "Murderer" then roleColor = Color3.fromRGB(255, 50, 50); roleText = "Убийца"
+    elseif role == "Sheriff" then roleColor = Color3.fromRGB(50, 150, 255); roleText = "Шериф" end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "QovickESP_Highlight"
+    highlight.Adornee = char
+    highlight.FillColor = roleColor
+    highlight.FillTransparency = 0.7
+    highlight.OutlineColor = roleColor
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = char
+
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "QovickESP"
     billboard.Adornee = hrp
-    billboard.Size = UDim2.fromOffset(200, 50)
+    billboard.Size = UDim2.fromOffset(200, 60)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = Hub.gui
+
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 20)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = player.Name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 14
     nameLabel.Parent = billboard
+
+    local roleLabel = Instance.new("TextLabel")
+    roleLabel.Size = UDim2.new(1, 0, 0, 20)
+    roleLabel.Position = UDim2.fromOffset(0, 20)
+    roleLabel.BackgroundTransparency = 1
+    roleLabel.Text = roleText
+    roleLabel.TextColor3 = roleColor
+    roleLabel.Font = Enum.Font.GothamBold
+    roleLabel.TextSize = 14
+    roleLabel.Parent = billboard
+
     local distLabel = Instance.new("TextLabel")
     distLabel.Size = UDim2.new(1, 0, 0, 20)
-    distLabel.Position = UDim2.fromOffset(0, 20)
+    distLabel.Position = UDim2.fromOffset(0, 40)
     distLabel.BackgroundTransparency = 1
     distLabel.Text = "0m"
     distLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
     distLabel.Font = Enum.Font.Gotham
     distLabel.TextSize = 12
     distLabel.Parent = billboard
-    table.insert(ESPObjects, { player = player, billboard = billboard, distLabel = distLabel })
+
+    table.insert(ESPObjects, { player = player, billboard = billboard, distLabel = distLabel, highlight = highlight, roleLabel = roleLabel })
 end
 
 local function RemoveESP()
-    for _, obj in ipairs(ESPObjects) do pcall(function() obj.billboard:Destroy() end) end
+    for _, obj in ipairs(ESPObjects) do pcall(function() obj.billboard:Destroy(); if obj.highlight then obj.highlight:Destroy() end end) end
     ESPObjects = {}
 end
 
@@ -1153,7 +1208,7 @@ local function UpdateESP()
     for i = #ESPObjects, 1, -1 do
         local obj = ESPObjects[i]
         if not obj.player.Character or not obj.player.Character:FindFirstChild("HumanoidRootPart") then
-            pcall(function() obj.billboard:Destroy() end)
+            pcall(function() obj.billboard:Destroy(); if obj.highlight then obj.highlight:Destroy() end end)
             table.remove(ESPObjects, i)
         end
     end
@@ -1173,6 +1228,17 @@ local function UpdateESP()
             if hrp then
                 local dist = math.floor((hrp.Position - myRoot.Position).Magnitude)
                 obj.distLabel.Text = dist .. "m"
+                
+                local role = GetPlayerRole(obj.player)
+                local roleColor = Color3.fromRGB(50, 255, 50)
+                local roleText = "Невинный"
+                
+                if role == "Murderer" then roleColor = Color3.fromRGB(255, 50, 50); roleText = "Убийца"
+                elseif role == "Sheriff" then roleColor = Color3.fromRGB(50, 150, 255); roleText = "Шериф" end
+                
+                obj.roleLabel.Text = roleText
+                obj.roleLabel.TextColor3 = roleColor
+                if obj.highlight then obj.highlight.FillColor = roleColor; obj.highlight.OutlineColor = roleColor end
             end
         end
     end
@@ -1245,54 +1311,85 @@ local function EnableSpeed(on, val)
     end)
 end
 
+-- ═══ Auto Farm ═══
+local AutoFarmState = { farming = false, collected = 0, startTime = 0, speed = 15, visited = {} }
+
+local function StartAutoFarm()
+    AutoFarmState.farming = true
+    AutoFarmState.collected = 0
+    AutoFarmState.startTime = tick()
+    AutoFarmState.visited = {}
+
+    task.spawn(function()
+        while AutoFarmState.farming do
+            local elapsed = tick() - AutoFarmState.startTime
+            local rate = math.floor((AutoFarmState.collected / math.max(1, elapsed)) * 3600)
+            -- print(("Candy: %d | Time: %ds | C/H: %d"):format(AutoFarmState.collected, elapsed, rate))
+            task.wait(1)
+        end
+    end)
+
+    task.spawn(function()
+        while AutoFarmState.farming do
+            local char = LP.Character or LP.CharacterAdded:Wait()
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local closest, dist = nil, math.huge
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj.Name == "Coin_Server"
+                       and obj:GetAttribute("CoinID") == "Candy"
+                       and not AutoFarmState.visited[obj] then
+                        local d = (obj.Position - hrp.Position).Magnitude
+                        if d < dist and d <= 250 then closest, dist = obj, d end
+                    end
+                end
+                
+                if closest and closest.Parent then
+                    AutoFarmState.visited[closest] = true
+                    for _, part in ipairs(char:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = false end end
+                    local tween = TweenService:Create(hrp, TweenInfo.new(dist / AutoFarmState.speed, Enum.EasingStyle.Linear), { CFrame = CFrame.new(closest.Position) })
+                    tween:Play()
+                    tween.Completed:Wait()
+                    AutoFarmState.collected += 1
+                end
+            end
+            task.wait(0.3)
+        end
+    end)
+end
+
+local function StopAutoFarm()
+    AutoFarmState.farming = false
+    local char = LP.Character
+    if char then for _, part in ipairs(char:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = true end end end
+end
+
 -- ═══ Добавление модулей в меню ═══
 Visuals:Section("ESP")
-Visuals:Module({
-    Name = "ESP Player",
-    Desc = "Показывает игроков через стены",
-    Default = false,
-    Callback = function(state) State.ESP = state; if not state then RemoveESP() end end,
-})
+Visuals:Module({ Name = "ESP Player", Desc = "Показывает игроков, роли и обводку", Default = false, Callback = function(state) State.ESP = state; if not state then RemoveESP() end end })
 
 Combat:Section("Aimbot")
-Combat:Module({
-    Name = "Silent Aim",
-    Desc = "Автоматически целится в ближайшего игрока",
-    Default = false,
-    Callback = function(state) State.SilentAim = state; EnableSilentAim(state) end,
-})
+Combat:Module({ Name = "Silent Aim", Desc = "Автоматически целится в ближайшего игрока", Default = false, Callback = function(state) State.SilentAim = state; EnableSilentAim(state) end })
 
 Movement:Section("Movement")
-Movement:Module({
-    Name = "Fly",
-    Desc = "Полёт (WASD + Space/Shift)",
+Movement:Module({ Name = "Fly", Desc = "Полёт (WASD + Space/Shift)", Default = false, Callback = function(state) State.Fly = state; EnableFly(state) end })
+Movement:Module({ Name = "Speed", Desc = "Ускорение персонажа", Default = false, Callback = function(state) State.Speed = state; EnableSpeed(state, State.SpeedValue) end }):Setting({ Type = "Slider", Title = "Speed Value", Min = 10, Max = 200, Default = 50, Callback = function(v) State.SpeedValue = v; if State.Speed then EnableSpeed(true, v) end end })
+
+AutoFarm:Section("Candy Farm")
+AutoFarm:Module({
+    Name = "Auto Farm Candy",
+    Desc = "Собирает конфеты (Candy)",
     Default = false,
-    Callback = function(state) State.Fly = state; EnableFly(state) end,
-})
-Movement:Module({
-    Name = "Speed",
-    Desc = "Ускорение персонажа",
-    Default = false,
-    Callback = function(state) State.Speed = state; EnableSpeed(state, State.SpeedValue) end,
+    Callback = function(state) if state then StartAutoFarm() else StopAutoFarm() end end,
 }):Setting({
-    Type = "Slider", Title = "Speed Value", Min = 10, Max = 200, Default = 50,
-    Callback = function(v) State.SpeedValue = v; if State.Speed then EnableSpeed(true, v) end end,
+    Type = "Slider", Title = "Fly Speed", Min = 5, Max = 50, Default = 15,
+    Callback = function(v) AutoFarmState.speed = v end,
 })
 
 Misc:Section("Server")
-Misc:Module({
-    Name = "Rejoin",
-    Desc = "Перезайти на текущий сервер",
-    Action = true,
-    Callback = function()
-        game:GetService("TeleportService"):Teleport(game.PlaceId, LP)
-    end,
-})
+Misc:Module({ Name = "Rejoin", Desc = "Перезайти на текущий сервер", Action = true, Callback = function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end })
 
--- Принудительно выбираем категорию Visuals, чтобы сразу увидеть модули
-Hub:SelectCategory(Visuals)
-
--- Запуск цикла ESP
+Hub:SelectCategory(AutoFarm)
 RunService.Heartbeat:Connect(UpdateESP)
 
-Hub:Notify({ Title = "QovickHub", Content = "Загружено с читами: ESP, Silent Aim, Fly, Speed", Duration = 5 })
+Hub:Notify({ Title = "QovickHub", Content = "Загружено! ESP с ролями и Auto Farm активны.", Duration = 5 })
