@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub v1.0 — Полный скрипт (UI + Читы + Auto Farm)
+--  QovickHub v1.3 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + Player List
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -1065,13 +1065,13 @@ return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
---  Инициализация QovickHub + Читы + Auto Farm
+--  Инициализация QovickHub + Читы + Auto Farm + Fling
 -- ═══════════════════════════════════════════════════════════════════════════
 local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
 local Hub = QovickHub.new({
     Title = "QovickHub",
-    Version = "v1.0",
+    Version = "v1.3",
     Width = 820,
     Height = 520,
 })
@@ -1095,7 +1095,7 @@ local Misc = Hub:Category("Misc", "settings")
 
 task.wait(0.2)
 
--- ═══ Читы и ESP ═══
+-- ═══ Читы ═══
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -1107,34 +1107,30 @@ local ESPObjects = {}
 local FlyConnection = nil
 local SpeedConnection = nil
 local OriginalWalkSpeed = 16
+local FlingSelected = {}
 
--- Функция определения роли
+-- ESP
 local function GetPlayerRole(player)
     local char = player.Character
     if not char then return "Innocent" end
-    
     local roleObj = player:FindFirstChild("Role") or player:FindFirstChild("role") or player:FindFirstChild("RoleName") or player:FindFirstChild("Team")
     if roleObj and roleObj:IsA("StringValue") then
         local r = roleObj.Value:lower()
         if r:find("murder") or r:find("убийца") then return "Murderer" end
         if r:find("sheriff") or r:find("шериф") then return "Sheriff" end
     end
-    
     local backpack = player:FindFirstChild("Backpack")
     local inventory = {}
     if backpack then for _, item in ipairs(backpack:GetChildren()) do if item:IsA("Tool") then table.insert(inventory, item) end end end
     for _, item in ipairs(char:GetChildren()) do if item:IsA("Tool") then table.insert(inventory, item) end end
-    
     for _, item in ipairs(inventory) do
         local name = item.Name:lower()
         if name:find("knife") or name:find("нож") or name:find("dagger") then return "Murderer"
         elseif name:find("gun") or name:find("пистолет") or name:find("revolver") or name:find("pistol") then return "Sheriff" end
     end
-    
     return "Innocent"
 end
 
--- ESP
 local function CreateESP(player)
     local char = player.Character
     if not char then return end
@@ -1245,28 +1241,55 @@ local function UpdateESP()
 end
 
 -- Silent Aim
-local silentAimConn = nil
-local function EnableSilentAim(on)
-    if silentAimConn then silentAimConn:Disconnect(); silentAimConn = nil end
-    if not on then return end
-    silentAimConn = RunService.RenderStepped:Connect(function()
-        if not State.SilentAim then return end
-        local myChar = LP.Character
-        if not myChar then return end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
-        local closest, closestDist = nil, math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LP and player.Character then
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                local humanoid = player.Character:FindFirstChild("Humanoid")
-                if hrp and humanoid and humanoid.Health > 0 then
-                    local dist = (hrp.Position - myRoot.Position).Magnitude
-                    if dist < closestDist then closest, closestDist = hrp, dist end
+local SilentAim = { enabled = false, targetPart = "Head", teamCheck = false, ignoreWalls = false, fov = 150, conn = nil }
+local function GetTarget()
+    local myChar = LP.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+    
+    local closest, closestDist = nil, math.huge
+    local mousePos = UserInputService:GetMouseLocation()
+    local cam = workspace.CurrentCamera
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character then
+            local char = player.Character
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                if SilentAim.teamCheck and player.Team == LP.Team then continue end
+                local targetPart = char:FindFirstChild(SilentAim.targetPart)
+                if targetPart then
+                    if SilentAim.fov > 0 then
+                        local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
+                        if not onScreen then continue end
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if dist > SilentAim.fov then continue end
+                    end
+                    if not SilentAim.ignoreWalls then
+                        local ray = Ray.new(cam.CFrame.Position, (targetPart.Position - cam.CFrame.Position).Unit * 500)
+                        local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {myChar})
+                        if hit and not hit:IsDescendantOf(char) then continue end
+                    end
+                    local dist = (targetPart.Position - myRoot.Position).Magnitude
+                    if dist < closestDist then closest, closestDist = targetPart, dist end
                 end
             end
         end
-        if closest then Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Position) end
+    end
+    return closest
+end
+local function EnableSilentAim(on)
+    if SilentAim.conn then SilentAim.conn:Disconnect(); SilentAim.conn = nil end
+    SilentAim.enabled = on
+    if not on then return end
+    SilentAim.conn = RunService.RenderStepped:Connect(function()
+        if not SilentAim.enabled then return end
+        local target = GetTarget()
+        if target then
+            local cam = workspace.CurrentCamera
+            cam.CFrame = CFrame.new(cam.CFrame.Position, target.Position)
+        end
     end)
 end
 
@@ -1311,33 +1334,25 @@ local function EnableSpeed(on, val)
     end)
 end
 
--- ═══ Auto Farm ═══
-local AutoFarmState = { farming = false, collected = 0, startTime = 0, speed = 15, visited = {} }
+-- ═══ Auto Farm (Candy + Coin) ═══
+local AutoFarmState = { farmingCandy = false, farmingCoin = false, collected = 0, startTime = 0, speed = 15, visited = {} }
 
-local function StartAutoFarm()
-    AutoFarmState.farming = true
+local function StartAutoFarm(isCandy)
+    local farmType = isCandy and "Candy" or "Coin"
+    if isCandy then AutoFarmState.farmingCandy = true else AutoFarmState.farmingCoin = true end
     AutoFarmState.collected = 0
     AutoFarmState.startTime = tick()
     AutoFarmState.visited = {}
 
     task.spawn(function()
-        while AutoFarmState.farming do
-            local elapsed = tick() - AutoFarmState.startTime
-            local rate = math.floor((AutoFarmState.collected / math.max(1, elapsed)) * 3600)
-            -- print(("Candy: %d | Time: %ds | C/H: %d"):format(AutoFarmState.collected, elapsed, rate))
-            task.wait(1)
-        end
-    end)
-
-    task.spawn(function()
-        while AutoFarmState.farming do
+        while (isCandy and AutoFarmState.farmingCandy) or (not isCandy and AutoFarmState.farmingCoin) do
             local char = LP.Character or LP.CharacterAdded:Wait()
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local closest, dist = nil, math.huge
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("BasePart") and obj.Name == "Coin_Server"
-                       and obj:GetAttribute("CoinID") == "Candy"
+                       and obj:GetAttribute("CoinID") == farmType
                        and not AutoFarmState.visited[obj] then
                         local d = (obj.Position - hrp.Position).Magnitude
                         if d < dist and d <= 250 then closest, dist = obj, d end
@@ -1358,10 +1373,57 @@ local function StartAutoFarm()
     end)
 end
 
-local function StopAutoFarm()
-    AutoFarmState.farming = false
-    local char = LP.Character
-    if char then for _, part in ipairs(char:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = true end end end
+local function StopAutoFarm(isCandy)
+    if isCandy then AutoFarmState.farmingCandy = false else AutoFarmState.farmingCoin = false end
+    if not AutoFarmState.farmingCandy and not AutoFarmState.farmingCoin then
+        local char = LP.Character
+        if char then for _, part in ipairs(char:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = true end end end
+    end
+end
+
+-- ═══ Fling ═══
+local function FlingTarget(player)
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local body = Instance.new("BodyAngularVelocity")
+    body.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    body.AngularVelocity = Vector3.new(0, 0, 0)
+    body.Parent = hrp
+    
+    local av = Instance.new("BodyVelocity")
+    av.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    av.Velocity = Vector3.new(0, 0, 0)
+    av.Parent = hrp
+    
+    local flinging = true
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        if not flinging or not hrp.Parent then
+            body:Destroy()
+            av:Destroy()
+            if conn then conn:Disconnect() end
+            return
+        end
+        local dir = (hrp.Position - LP.Character.HumanoidRootPart.Position).Unit
+        av.Velocity = dir * 1000
+        body.AngularVelocity = Vector3.new(math.random(-1000, 1000), math.random(-1000, 1000), math.random(-1000, 1000))
+    end)
+    
+    task.delay(3, function()
+        flinging = false
+        body:Destroy()
+        av:Destroy()
+        if conn then conn:Disconnect() end
+    end)
+end
+
+local function FlingAll()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LP then FlingTarget(player) end
+    end
 end
 
 -- ═══ Добавление модулей в меню ═══
@@ -1369,27 +1431,35 @@ Visuals:Section("ESP")
 Visuals:Module({ Name = "ESP Player", Desc = "Показывает игроков, роли и обводку", Default = false, Callback = function(state) State.ESP = state; if not state then RemoveESP() end end })
 
 Combat:Section("Aimbot")
-Combat:Module({ Name = "Silent Aim", Desc = "Автоматически целится в ближайшего игрока", Default = false, Callback = function(state) State.SilentAim = state; EnableSilentAim(state) end })
+Combat:Module({ Name = "Silent Aim", Desc = "Автоматически целится в ближайшего игрока", Default = false, Callback = function(state) EnableSilentAim(state) end })
+    :Setting({ Type = "Dropdown", Title = "Target Part", Values = { "Head", "HumanoidRootPart" }, Default = "Head", Callback = function(v) SilentAim.targetPart = v end })
+    :Setting({ Type = "Slider", Title = "FOV", Min = 0, Max = 500, Default = 150, Callback = function(v) SilentAim.fov = v end })
+    :Setting({ Type = "Toggle", Title = "Ignore Walls", Default = false, Callback = function(v) SilentAim.ignoreWalls = v end })
 
 Movement:Section("Movement")
 Movement:Module({ Name = "Fly", Desc = "Полёт (WASD + Space/Shift)", Default = false, Callback = function(state) State.Fly = state; EnableFly(state) end })
-Movement:Module({ Name = "Speed", Desc = "Ускорение персонажа", Default = false, Callback = function(state) State.Speed = state; EnableSpeed(state, State.SpeedValue) end }):Setting({ Type = "Slider", Title = "Speed Value", Min = 10, Max = 200, Default = 50, Callback = function(v) State.SpeedValue = v; if State.Speed then EnableSpeed(true, v) end end })
+Movement:Module({ Name = "Speed", Desc = "Ускорение персонажа", Default = false, Callback = function(state) State.Speed = state; EnableSpeed(state, State.SpeedValue) end })
+    :Setting({ Type = "Slider", Title = "Speed Value", Min = 10, Max = 200, Default = 50, Callback = function(v) State.SpeedValue = v; if State.Speed then EnableSpeed(true, v) end end })
 
-AutoFarm:Section("Candy Farm")
-AutoFarm:Module({
-    Name = "Auto Farm Candy",
-    Desc = "Собирает конфеты (Candy)",
-    Default = false,
-    Callback = function(state) if state then StartAutoFarm() else StopAutoFarm() end end,
-}):Setting({
-    Type = "Slider", Title = "Fly Speed", Min = 5, Max = 50, Default = 15,
-    Callback = function(v) AutoFarmState.speed = v end,
-})
+AutoFarm:Section("Auto Farm")
+AutoFarm:Module({ Name = "Auto Farm Candy", Desc = "Собирает конфеты (Candy)", Default = false, Callback = function(state) if state then StartAutoFarm(true) else StopAutoFarm(true) end end })
+    :Setting({ Type = "Slider", Title = "Fly Speed", Min = 5, Max = 50, Default = 15, Callback = function(v) AutoFarmState.speed = v end })
+AutoFarm:Module({ Name = "Auto Farm Coin", Desc = "Собирает монеты (Coin)", Default = false, Callback = function(state) if state then StartAutoFarm(false) else StopAutoFarm(false) end end })
+    :Setting({ Type = "Slider", Title = "Fly Speed", Min = 5, Max = 50, Default = 15, Callback = function(v) AutoFarmState.speed = v end })
+
+Misc:Section("Fling")
+Misc:Module({ Name = "Fling All", Desc = "Флингает всех игроков", Action = true, Callback = function() FlingAll() end })
 
 Misc:Section("Server")
 Misc:Module({ Name = "Rejoin", Desc = "Перезайти на текущий сервер", Action = true, Callback = function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end })
 
-Hub:SelectCategory(AutoFarm)
+Hub:SelectCategory(Visuals)
 RunService.Heartbeat:Connect(UpdateESP)
+RunService.Heartbeat:Connect(function()
+    -- Динамическое обновление списка игроков для вкладки Players
+    if Hub.pagePlayers and Hub.pagePlayers.Visible then
+        -- (можно добавить логику обновления списка)
+    end
+end)
 
-Hub:Notify({ Title = "QovickHub", Content = "Загружено! ESP с ролями и Auto Farm активны.", Duration = 5 })
+Hub:Notify({ Title = "QovickHub", Content = "Загружено! ESP + AutoFarm + Fling", Duration = 5 })
