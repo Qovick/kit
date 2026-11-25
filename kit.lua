@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub v1.3 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + Player List
+--  QovickHub v1.4 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + AutoPickup
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -1065,13 +1065,13 @@ return QovickHub
 ]==]
 
 -- ═══════════════════════════════════════════════════════════════════════════
---  Инициализация QovickHub + Читы + Auto Farm + Fling
+--  Инициализация QovickHub + Читы + Auto Farm + Fling + AutoPickup
 -- ═══════════════════════════════════════════════════════════════════════════
 local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
 local Hub = QovickHub.new({
     Title = "QovickHub",
-    Version = "v1.3",
+    Version = "v1.4",
     Width = 820,
     Height = 520,
 })
@@ -1426,6 +1426,45 @@ local function FlingAll()
     end
 end
 
+-- ═══ Auto Pickup Gun ═══
+local AutoPickupState = { enabled = false, conn = nil }
+
+local function StartAutoPickup()
+    if AutoPickupState.enabled then return end
+    AutoPickupState.enabled = true
+    
+    AutoPickupState.conn = RunService.Heartbeat:Connect(function()
+        if not AutoPickupState.enabled then return end
+        
+        local char = LP.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not hrp or not humanoid then return end
+        
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("pistol")) then
+                local handle = obj:FindFirstChild("Handle")
+                if handle and (handle.Position - hrp.Position).Magnitude < 50 then
+                    if obj.Parent == workspace then
+                        humanoid:EquipTool(obj)
+                    elseif obj.Parent and obj.Parent:IsA("Backpack") then
+                        if not char:FindFirstChild(obj.Name) then
+                            obj.Parent = char
+                            humanoid:EquipTool(obj)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function StopAutoPickup()
+    AutoPickupState.enabled = false
+    if AutoPickupState.conn then AutoPickupState.conn:Disconnect(); AutoPickupState.conn = nil end
+end
+
 -- ═══ Добавление модулей в меню ═══
 Visuals:Section("ESP")
 Visuals:Module({ Name = "ESP Player", Desc = "Показывает игроков, роли и обводку", Default = false, Callback = function(state) State.ESP = state; if not state then RemoveESP() end end })
@@ -1447,6 +1486,9 @@ AutoFarm:Module({ Name = "Auto Farm Candy", Desc = "Собирает конфе�
 AutoFarm:Module({ Name = "Auto Farm Coin", Desc = "Собирает монеты (Coin)", Default = false, Callback = function(state) if state then StartAutoFarm(false) else StopAutoFarm(false) end end })
     :Setting({ Type = "Slider", Title = "Fly Speed", Min = 5, Max = 50, Default = 15, Callback = function(v) AutoFarmState.speed = v end })
 
+Misc:Section("Auto Pickup")
+Misc:Module({ Name = "Auto Pickup Gun", Desc = "Автоматически подбирает пистолет (Sheriff)", Default = false, Callback = function(state) if state then StartAutoPickup() else StopAutoPickup() end end })
+
 Misc:Section("Fling")
 Misc:Module({ Name = "Fling All", Desc = "Флингает всех игроков", Action = true, Callback = function() FlingAll() end })
 
@@ -1455,11 +1497,19 @@ Misc:Module({ Name = "Rejoin", Desc = "Перезайти на текущий с
 
 Hub:SelectCategory(Visuals)
 RunService.Heartbeat:Connect(UpdateESP)
-RunService.Heartbeat:Connect(function()
-    -- Динамическое обновление списка игроков для вкладки Players
-    if Hub.pagePlayers and Hub.pagePlayers.Visible then
-        -- (можно добавить логику обновления списка)
+
+-- ═══ Автообновление ESP после каждого раунда ═══
+LP.CharacterAdded:Connect(function()
+    task.wait(1)
+    if State.ESP then RemoveESP() end
+end)
+
+-- ═══ ESP на новых игроков ═══
+Players.PlayerAdded:Connect(function(player)
+    task.wait(1)
+    if State.ESP and player ~= LP then
+        CreateESP(player)
     end
 end)
 
-Hub:Notify({ Title = "QovickHub", Content = "Загружено! ESP + AutoFarm + Fling", Duration = 5 })
+Hub:Notify({ Title = "QovickHub", Content = "Загружено! ESP + AutoFarm + Fling + AutoPickup", Duration = 5 })
