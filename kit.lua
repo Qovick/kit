@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub v1.4 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + AutoPickup
+--  QovickHub v1.5 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + AutoPickup
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -1071,7 +1071,7 @@ local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
 local Hub = QovickHub.new({
     Title = "QovickHub",
-    Version = "v1.4",
+    Version = "v1.5",
     Width = 820,
     Height = 520,
 })
@@ -1105,9 +1105,9 @@ local Camera = workspace.CurrentCamera
 local State = { ESP = false, SilentAim = false, Fly = false, Speed = false, SpeedValue = 50 }
 local ESPObjects = {}
 local FlyConnection = nil
+local FlyBodyVel = nil
 local SpeedConnection = nil
 local OriginalWalkSpeed = 16
-local FlingSelected = {}
 
 -- ESP
 local function GetPlayerRole(player)
@@ -1293,30 +1293,46 @@ local function EnableSilentAim(on)
     end)
 end
 
--- Fly
+-- Fly (исправленный)
 local function EnableFly(on)
     if FlyConnection then FlyConnection:Disconnect(); FlyConnection = nil end
+    if FlyBodyVel then pcall(function() FlyBodyVel:Destroy() end); FlyBodyVel = nil end
+    
     local char = LP.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local humanoid = char:FindFirstChild("Humanoid")
     if not hrp or not humanoid then return end
-    if not on then humanoid.PlatformStand = false; hrp.Velocity = Vector3.new(0, 0, 0); return end
+    
+    if not on then
+        humanoid.PlatformStand = false
+        hrp.Velocity = Vector3.new(0, 0, 0)
+        return
+    end
+    
     humanoid.PlatformStand = true
-    local bodyVel = Instance.new("BodyVelocity")
-    bodyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    bodyVel.Velocity = Vector3.new(0, 0, 0)
-    bodyVel.Parent = hrp
+    FlyBodyVel = Instance.new("BodyVelocity")
+    FlyBodyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    FlyBodyVel.Velocity = Vector3.new(0, 0, 0)
+    FlyBodyVel.Parent = hrp
+    
     FlyConnection = RunService.Heartbeat:Connect(function()
-        if not State.Fly then bodyVel:Destroy(); humanoid.PlatformStand = false; return end
-        local moveDir = Vector3.new(0, 0, 0)
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir -= Vector3.new(0, 1, 0) end
-        bodyVel.Velocity = moveDir * 50
+        if not State.Fly then
+            if FlyBodyVel then pcall(function() FlyBodyVel:Destroy() end); FlyBodyVel = nil end
+            if humanoid then humanoid.PlatformStand = false end
+            if hrp then hrp.Velocity = Vector3.new(0, 0, 0) end
+            return
+        end
+        if FlyBodyVel and FlyBodyVel.Parent then
+            local moveDir = Vector3.new(0, 0, 0)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir -= Vector3.new(0, 1, 0) end
+            FlyBodyVel.Velocity = moveDir * 50
+        end
     end)
 end
 
@@ -1426,7 +1442,7 @@ local function FlingAll()
     end
 end
 
--- ═══ Auto Pickup Gun ═══
+-- ═══ Auto Pickup Gun (с телепортом) ═══
 local AutoPickupState = { enabled = false, conn = nil }
 
 local function StartAutoPickup()
@@ -1442,18 +1458,39 @@ local function StartAutoPickup()
         local humanoid = char:FindFirstChild("Humanoid")
         if not hrp or not humanoid then return end
         
+        -- Ищем пистолет в workspace
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("pistol")) then
                 local handle = obj:FindFirstChild("Handle")
-                if handle and (handle.Position - hrp.Position).Magnitude < 50 then
-                    if obj.Parent == workspace then
+                if handle then
+                    local originalPos = hrp.CFrame
+                    local originalVel = hrp.Velocity
+                    
+                    -- Телепорт к пистолету (на 1 мс)
+                    hrp.CFrame = handle.CFrame
+                    task.wait(0.001)
+                    
+                    -- Подбор
+                    pcall(function()
                         humanoid:EquipTool(obj)
-                    elseif obj.Parent and obj.Parent:IsA("Backpack") then
-                        if not char:FindFirstChild(obj.Name) then
-                            obj.Parent = char
-                            humanoid:EquipTool(obj)
-                        end
-                    end
+                    end)
+                    
+                    -- Возврат на место
+                    hrp.CFrame = originalPos
+                    hrp.Velocity = originalVel
+                end
+            end
+        end
+        
+        -- Ищем в Backpack и экипируем
+        local backpack = LP:FindFirstChild("Backpack")
+        if backpack then
+            for _, obj in ipairs(backpack:GetChildren()) do
+                if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("pistol")) then
+                    if char:FindFirstChild(obj.Name) then continue end
+                    pcall(function()
+                        humanoid:EquipTool(obj)
+                    end)
                 end
             end
         end
