@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  QovickHub v1.5 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + AutoPickup
+--  QovickHub v1.6 — UI + ESP + Silent Aim + Fly + Speed + AutoFarm + Fling + AutoPickup
 -- ═══════════════════════════════════════════════════════════════════════════
 
 local QOVICKHUB_SOURCE = [==[
@@ -1071,7 +1071,7 @@ local QovickHub = loadstring(QOVICKHUB_SOURCE)()
 
 local Hub = QovickHub.new({
     Title = "QovickHub",
-    Version = "v1.5",
+    Version = "v1.6",
     Width = 820,
     Height = 520,
 })
@@ -1442,8 +1442,22 @@ local function FlingAll()
     end
 end
 
--- ═══ Auto Pickup Gun (с телепортом) ═══
+-- ═══ Auto Pickup Gun (исправленный, только выпавший) ═══
 local AutoPickupState = { enabled = false, conn = nil }
+
+local function IsGun(tool)
+    if not tool:IsA("Tool") then return false end
+    local name = tool.Name:lower()
+    return name:find("gun") or name:find("revolver") or name:find("pistol")
+end
+
+local function IsDropped(tool)
+    local parent = tool.Parent
+    if not parent then return false end
+    if parent:IsA("Backpack") then return false end
+    if parent:IsA("Model") and parent:FindFirstChildOfClass("Humanoid") then return false end
+    return true
+end
 
 local function StartAutoPickup()
     if AutoPickupState.enabled then return end
@@ -1458,39 +1472,24 @@ local function StartAutoPickup()
         local humanoid = char:FindFirstChild("Humanoid")
         if not hrp or not humanoid then return end
         
-        -- Ищем пистолет в workspace
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("pistol")) then
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if IsGun(obj) and IsDropped(obj) then
                 local handle = obj:FindFirstChild("Handle")
                 if handle then
                     local originalPos = hrp.CFrame
                     local originalVel = hrp.Velocity
                     
-                    -- Телепорт к пистолету (на 1 мс)
                     hrp.CFrame = handle.CFrame
                     task.wait(0.001)
                     
-                    -- Подбор
                     pcall(function()
                         humanoid:EquipTool(obj)
                     end)
                     
-                    -- Возврат на место
                     hrp.CFrame = originalPos
                     hrp.Velocity = originalVel
-                end
-            end
-        end
-        
-        -- Ищем в Backpack и экипируем
-        local backpack = LP:FindFirstChild("Backpack")
-        if backpack then
-            for _, obj in ipairs(backpack:GetChildren()) do
-                if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("revolver") or obj.Name:lower():find("pistol")) then
-                    if char:FindFirstChild(obj.Name) then continue end
-                    pcall(function()
-                        humanoid:EquipTool(obj)
-                    end)
+                    
+                    if obj.Parent == char then break end
                 end
             end
         end
@@ -1524,7 +1523,7 @@ AutoFarm:Module({ Name = "Auto Farm Coin", Desc = "Собирает монеты
     :Setting({ Type = "Slider", Title = "Fly Speed", Min = 5, Max = 50, Default = 15, Callback = function(v) AutoFarmState.speed = v end })
 
 Misc:Section("Auto Pickup")
-Misc:Module({ Name = "Auto Pickup Gun", Desc = "Автоматически подбирает пистолет (Sheriff)", Default = false, Callback = function(state) if state then StartAutoPickup() else StopAutoPickup() end end })
+Misc:Module({ Name = "Auto Pickup Gun", Desc = "Автоматически подбирает выпавший пистолет", Default = false, Callback = function(state) if state then StartAutoPickup() else StopAutoPickup() end end })
 
 Misc:Section("Fling")
 Misc:Module({ Name = "Fling All", Desc = "Флингает всех игроков", Action = true, Callback = function() FlingAll() end })
